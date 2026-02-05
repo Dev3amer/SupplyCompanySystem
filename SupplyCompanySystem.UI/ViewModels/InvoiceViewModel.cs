@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Threading;
 
 namespace SupplyCompanySystem.UI.ViewModels
@@ -22,7 +23,14 @@ namespace SupplyCompanySystem.UI.ViewModels
         private ObservableCollection<Product> _products;
         private ObservableCollection<InvoiceItem> _invoiceItems;
 
-        // ✅ إزالة خصائص البحث المنفصلة
+        // ✅ CollectionViewSource للبحث الفوري
+        private CollectionViewSource _customersViewSource;
+        private CollectionViewSource _productsViewSource;
+
+        // ✅ إضافة خصائص البحث الجديدة
+        private string _customerSearchText;
+        private string _productSearchText;
+
         private Invoice _currentInvoice;
         private Invoice _selectedInvoiceFromList;
         private InvoiceItem _selectedInvoiceItem;
@@ -34,6 +42,10 @@ namespace SupplyCompanySystem.UI.ViewModels
         private bool _isEditMode;
         private bool _isSaved;
 
+        // ✅ flags لمنع التحديث التلقائي
+        private bool _isSelectingCustomer = false;
+        private bool _isSelectingProduct = false;
+
         // ===== Properties =====
         public ObservableCollection<Invoice> Invoices
         {
@@ -44,14 +56,70 @@ namespace SupplyCompanySystem.UI.ViewModels
         public ObservableCollection<Customer> Customers
         {
             get => _customers;
-            set { _customers = value; OnPropertyChanged(nameof(Customers)); }
+            set
+            {
+                _customers = value;
+                OnPropertyChanged(nameof(Customers));
+                if (_customersViewSource != null)
+                {
+                    _customersViewSource.Source = _customers;
+                    _customersViewSource.View?.Refresh();
+                }
+            }
         }
 
         public ObservableCollection<Product> Products
         {
             get => _products;
-            set { _products = value; OnPropertyChanged(nameof(Products)); }
+            set
+            {
+                _products = value;
+                OnPropertyChanged(nameof(Products));
+                if (_productsViewSource != null)
+                {
+                    _productsViewSource.Source = _products;
+                    _productsViewSource.View?.Refresh();
+                }
+            }
         }
+
+        // ✅ خاصية البحث في العملاء
+        public string CustomerSearchText
+        {
+            get => _customerSearchText;
+            set
+            {
+                if (_customerSearchText != value)
+                {
+                    _customerSearchText = value;
+                    OnPropertyChanged(nameof(CustomerSearchText));
+                    // تحديث الفلترة عند تغيير نص البحث
+                    _customersViewSource?.View?.Refresh();
+                }
+            }
+        }
+
+        // ✅ خاصية البحث في المنتجات
+        public string ProductSearchText
+        {
+            get => _productSearchText;
+            set
+            {
+                if (_productSearchText != value)
+                {
+                    _productSearchText = value;
+                    OnPropertyChanged(nameof(ProductSearchText));
+                    // تحديث الفلترة عند تغيير نص البحث
+                    _productsViewSource?.View?.Refresh();
+                }
+            }
+        }
+
+        // ✅ عرض العملاء المفلترين
+        public ICollectionView FilteredCustomersView => _customersViewSource?.View;
+
+        // ✅ عرض المنتجات المفلترة
+        public ICollectionView FilteredProductsView => _productsViewSource?.View;
 
         public ObservableCollection<InvoiceItem> InvoiceItems
         {
@@ -125,20 +193,32 @@ namespace SupplyCompanySystem.UI.ViewModels
             get => _selectedCustomer;
             set
             {
-                _selectedCustomer = value;
-                if (_currentInvoice != null && value != null)
+                if (_selectedCustomer != value)
                 {
-                    _currentInvoice.CustomerId = value.Id;
-                    _currentInvoice.Customer = value;
+                    _selectedCustomer = value;
+
+                    if (_currentInvoice != null && value != null)
+                    {
+                        _currentInvoice.CustomerId = value.Id;
+                        _currentInvoice.Customer = value;
+                    }
+
+                    OnPropertyChanged(nameof(SelectedCustomer));
                 }
-                OnPropertyChanged(nameof(SelectedCustomer));
             }
         }
 
         public Product SelectedProduct
         {
             get => _selectedProduct;
-            set { _selectedProduct = value; OnPropertyChanged(nameof(SelectedProduct)); }
+            set
+            {
+                if (_selectedProduct != value)
+                {
+                    _selectedProduct = value;
+                    OnPropertyChanged(nameof(SelectedProduct));
+                }
+            }
         }
 
         public string ProductQuantity
@@ -219,6 +299,10 @@ namespace SupplyCompanySystem.UI.ViewModels
         public RelayCommand CancelInvoiceCommand { get; }
         public RelayCommand DeleteInvoiceCommand { get; }
 
+        // ✅ إضافة الـ Commands للبحث
+        public RelayCommand ClearCustomerSearchCommand { get; }
+        public RelayCommand ClearProductSearchCommand { get; }
+
         // ===== Constructor =====
         public InvoiceViewModel(IInvoiceRepository invoiceRepository, ICustomerRepository customerRepository, IProductRepository productRepository)
         {
@@ -231,7 +315,16 @@ namespace SupplyCompanySystem.UI.ViewModels
             Products = new ObservableCollection<Product>();
             InvoiceItems = new ObservableCollection<InvoiceItem>();
 
+            // ✅ إعداد CollectionViewSource للبحث
+            _customersViewSource = new CollectionViewSource { Source = Customers };
+            _customersViewSource.Filter += CustomersViewSource_Filter;
+
+            _productsViewSource = new CollectionViewSource { Source = Products };
+            _productsViewSource.Filter += ProductsViewSource_Filter;
+
             _profitMarginPercentage = string.Empty;
+            _customerSearchText = string.Empty;
+            _productSearchText = string.Empty;
 
             NewInvoiceCommand = new RelayCommand(_ => NewInvoice());
             SaveInvoiceCommand = new RelayCommand(_ => SaveInvoice());
@@ -245,12 +338,70 @@ namespace SupplyCompanySystem.UI.ViewModels
             CancelInvoiceCommand = new RelayCommand(_ => CancelInvoice());
             DeleteInvoiceCommand = new RelayCommand(_ => DeleteInvoice());
 
+            // ✅ إضافة Commands البحث
+            ClearCustomerSearchCommand = new RelayCommand(_ =>
+            {
+                CustomerSearchText = string.Empty;
+                SelectedCustomer = null;
+            });
+            ClearProductSearchCommand = new RelayCommand(_ =>
+            {
+                ProductSearchText = string.Empty;
+                SelectedProduct = null;
+            });
+
             _updateTimer = new DispatcherTimer();
             _updateTimer.Interval = TimeSpan.FromMilliseconds(500);
             _updateTimer.Tick += UpdateTimer_Tick;
             _updateTimer.Start();
 
             LoadData();
+        }
+
+        // ✅ معالج فلترة العملاء
+        private void CustomersViewSource_Filter(object sender, FilterEventArgs e)
+        {
+            if (e.Item is Customer customer)
+            {
+                if (string.IsNullOrWhiteSpace(CustomerSearchText))
+                {
+                    e.Accepted = true;
+                }
+                else
+                {
+                    var searchText = CustomerSearchText.ToLower();
+                    e.Accepted = customer.Name.ToLower().Contains(searchText) ||
+                                 customer.PhoneNumber.ToLower().Contains(searchText) ||
+                                 customer.Address.ToLower().Contains(searchText);
+                }
+            }
+            else
+            {
+                e.Accepted = false;
+            }
+        }
+
+        // ✅ معالج فلترة المنتجات
+        private void ProductsViewSource_Filter(object sender, FilterEventArgs e)
+        {
+            if (e.Item is Product product)
+            {
+                if (string.IsNullOrWhiteSpace(ProductSearchText))
+                {
+                    e.Accepted = true;
+                }
+                else
+                {
+                    var searchText = ProductSearchText.ToLower();
+                    e.Accepted = product.Name.ToLower().Contains(searchText) ||
+                                 (product.SKU != null && product.SKU.ToLower().Contains(searchText)) ||
+                                 (product.Category != null && product.Category.ToLower().Contains(searchText));
+                }
+            }
+            else
+            {
+                e.Accepted = false;
+            }
         }
 
         private void UpdateTimer_Tick(object sender, EventArgs e) => RecalculateTotals();
@@ -385,6 +536,8 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 Customers.Add(customer);
             }
+
+            _customersViewSource?.View?.Refresh();
         }
 
         private void LoadActiveProducts()
@@ -397,6 +550,8 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 Products.Add(product);
             }
+
+            _productsViewSource?.View?.Refresh();
         }
 
         private void LoadIncompleteInvoices()
@@ -430,6 +585,8 @@ namespace SupplyCompanySystem.UI.ViewModels
             ProductQuantity = string.Empty;
             ProductDiscount = string.Empty;
             ProfitMarginPercentage = string.Empty;
+            CustomerSearchText = string.Empty; // ✅ تفريغ البحث
+            ProductSearchText = string.Empty;  // ✅ تفريغ البحث
             SelectedInvoiceFromList = null;
             IsEditMode = true;
             IsSaved = false;
@@ -451,6 +608,8 @@ namespace SupplyCompanySystem.UI.ViewModels
             ProfitMarginPercentage = SelectedInvoiceFromList.ProfitMarginPercentage != 0
                 ? SelectedInvoiceFromList.ProfitMarginPercentage.ToString()
                 : string.Empty;
+            CustomerSearchText = SelectedCustomer?.Name ?? string.Empty; // ✅ تعيين اسم العميل في البحث
+            ProductSearchText = string.Empty;  // ✅ تفريغ البحث
             IsEditMode = false;
             IsSaved = true;
         }
@@ -466,32 +625,48 @@ namespace SupplyCompanySystem.UI.ViewModels
 
             decimal priceWithMargin = CalculatePriceWithProfitMargin(SelectedProduct.Price);
 
+            // البحث عن المنتج الموجود حالياً
             var existing = InvoiceItems.FirstOrDefault(i => i.ProductId == SelectedProduct.Id);
+
             if (existing != null)
             {
+                // ✅ تحديث المنتج الموجود مع نقله للأعلى
                 existing.Quantity += quantity;
                 existing.DiscountPercentage = discount;
                 existing.UnitPrice = priceWithMargin;
-                existing.LineTotal = (existing.Quantity * existing.UnitPrice) - ((existing.Quantity * existing.UnitPrice * existing.DiscountPercentage) / 100);
+                existing.LineTotal = (existing.Quantity * existing.UnitPrice) -
+                                    ((existing.Quantity * existing.UnitPrice * existing.DiscountPercentage) / 100);
 
+                // ✅ نقل المنتج إلى أول القائمة
                 int idx = InvoiceItems.IndexOf(existing);
-                InvoiceItems[idx] = existing;
+                InvoiceItems.Move(idx, 0);
             }
             else
             {
+                // ✅ إضافة المنتج الجديد في بداية القائمة (الأعلى)
                 var newItem = new InvoiceItem(SelectedProduct.Id, quantity, priceWithMargin)
                 {
                     Product = SelectedProduct,
                     DiscountPercentage = discount
                 };
-                newItem.LineTotal = (newItem.Quantity * newItem.UnitPrice) - ((newItem.Quantity * newItem.UnitPrice * newItem.DiscountPercentage) / 100);
-                InvoiceItems.Add(newItem);
+                newItem.LineTotal = (newItem.Quantity * newItem.UnitPrice) -
+                                   ((newItem.Quantity * newItem.UnitPrice * newItem.DiscountPercentage) / 100);
+
+                InvoiceItems.Insert(0, newItem); // ✅ إدراج في البداية بدلاً من Add
             }
 
+            // ✅ تحديث الواجهة
             SelectedProduct = null;
             ProductQuantity = string.Empty;
             ProductDiscount = string.Empty;
+            ProductSearchText = string.Empty;
             RecalculateTotals();
+
+            // ✅ إذا كان DataGrid يسمح بالتحديد التلقائي
+            if (InvoiceItems.Count > 0)
+            {
+                SelectedInvoiceItem = InvoiceItems.First();
+            }
         }
 
         private void RemoveItem()
@@ -602,6 +777,8 @@ namespace SupplyCompanySystem.UI.ViewModels
             ProductQuantity = string.Empty;
             ProductDiscount = string.Empty;
             ProfitMarginPercentage = string.Empty;
+            CustomerSearchText = string.Empty; // ✅ تفريغ البحث
+            ProductSearchText = string.Empty;  // ✅ تفريغ البحث
             SelectedInvoiceFromList = null;
         }
 
@@ -612,6 +789,16 @@ namespace SupplyCompanySystem.UI.ViewModels
                 _updateTimer.Stop();
                 _updateTimer.Tick -= UpdateTimer_Tick;
                 _updateTimer = null;
+            }
+
+            if (_customersViewSource != null)
+            {
+                _customersViewSource.Filter -= CustomersViewSource_Filter;
+            }
+
+            if (_productsViewSource != null)
+            {
+                _productsViewSource.Filter -= ProductsViewSource_Filter;
             }
         }
     }

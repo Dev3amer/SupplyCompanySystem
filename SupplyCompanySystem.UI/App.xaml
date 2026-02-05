@@ -4,7 +4,6 @@
              xmlns:conv="clr-namespace:SupplyCompanySystem.UI.Converters">
 
     <Application.Resources>
-        <!-- ✅ تضمين ستايل SearchableComboBox -->
         <ResourceDictionary>
 
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
@@ -12,6 +11,8 @@
             <conv:BoolToStatusConverter x:Key="BoolToStatusConverter"/>
             <conv:BoolToColorConverter x:Key="BoolToColorConverter"/>
             <conv:DisplayMemberConverter x:Key="DisplayMemberConverter"/>
+            <conv:StatusToColorConverter x:Key="StatusToColorConverter"/>
+            <conv:StatusToStringConverter x:Key="StatusToStringConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
