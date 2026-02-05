@@ -1,0 +1,234 @@
+﻿<UserControl x:Class="SupplyCompanySystem.UI.Views.ProductsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:SupplyCompanySystem.UI.Converters"
+             Background="White"
+             FlowDirection="RightToLeft">
+
+    <UserControl.Resources>
+        <local:BoolToStatusConverter x:Key="BoolToStatusConverter"/>
+        <local:BoolToColorConverter x:Key="BoolToColorConverter"/>
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <local:NotNullToBoolConverter x:Key="NotNullConverter"/>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Search Bar -->
+        <Border Grid.Row="0" Background="#F8F9FA" Padding="15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="250"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="البحث:" Foreground="#2C3E50" FontSize="14" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBox Grid.Column="1" Padding="8" FontSize="12" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <Button Grid.Column="2" Content="مسح البحث" Command="{Binding ClearSearchCommand}" Background="#95A5A6" Foreground="White" Padding="10,6" FontSize="11" BorderThickness="0" Margin="10,0,0,0"/>
+
+                <TextBlock Grid.Column="3" Text="التصنيف:" Foreground="#2C3E50" FontSize="14" VerticalAlignment="Center" Margin="20,0,10,0"/>
+                <ComboBox Grid.Column="4" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Foreground="#2C3E50" FontSize="12" Padding="8" DisplayMemberPath="." SelectedValuePath="."/>
+
+                <!-- ✅ Checkbox لعرض المنتجات المعطّلة -->
+                <CheckBox Grid.Column="5" Content="عرض المعطّلة" IsChecked="{Binding ShowInactiveProducts}" Foreground="#2C3E50" FontSize="11" VerticalAlignment="Center" Margin="0,0,20,0" HorizontalAlignment="Right"/>
+
+                <TextBlock Grid.Column="6" Text="{Binding TotalProductsText}" Foreground="#2C3E50" FontSize="12" VerticalAlignment="Center" TextAlignment="Right" Margin="0,0,20,0"/>
+
+                <StackPanel Grid.Column="7" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="تصدير Excel" Background="#27AE60" Foreground="White" Padding="10,6" FontSize="11" BorderThickness="0" Margin="0,0,5,0" Click="ExportToExcel_Click"/>
+                    <Button Content="تصدير PDF" Background="#E74C3C" Foreground="White" Padding="10,6" FontSize="11" BorderThickness="0" Margin="0,0,5,0" Click="ExportToPdf_Click"/>
+                    <Button Content="تصدير CSV" Background="#F39C12" Foreground="White" Padding="10,6" FontSize="11" BorderThickness="0" Click="ExportToCsv_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <DataGrid Grid.Row="1" 
+                  ItemsSource="{Binding Products}"
+                  SelectedItem="{Binding SelectedProduct}"
+                  AutoGenerateColumns="False"
+                  RowHeight="40"
+                  Margin="15">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="رقم المنتج" Binding="{Binding Id}" Width="100"/>
+                <DataGridTextColumn Header="اسم المنتج" Binding="{Binding Name}" Width="150"/>
+                <DataGridTextColumn Header="الكود" Binding="{Binding SKU}" Width="100"/>
+                <DataGridTextColumn Header="السعر" Binding="{Binding Price, StringFormat='0.00'}" Width="100"/>
+                <DataGridTextColumn Header="الوحدة" Binding="{Binding Unit}" Width="80"/>
+                <DataGridTextColumn Header="التصنيف" Binding="{Binding Category}" Width="100"/>
+                <DataGridTemplateColumn Header="الحالة" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding IsActive, Converter={StaticResource BoolToStatusConverter}}" 
+                                       Foreground="{Binding IsActive, Converter={StaticResource BoolToColorConverter}}"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="الوصف" Binding="{Binding Description}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Pagination Bar -->
+        <Border Grid.Row="2" Background="#F8F9FA" Padding="15" BorderThickness="0,1,0,0" BorderBrush="#E0E0E0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="السابق" Command="{Binding PreviousPageCommand}" Background="#3498DB" Foreground="White" Padding="10,6" FontSize="11" BorderThickness="0" Margin="0,0,10,0"/>
+
+                <TextBlock Text="{Binding PaginationText}" Foreground="#2C3E50" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+
+                <Button Content="التالي" Command="{Binding NextPageCommand}" Background="#3498DB" Foreground="White" Padding="10,6" FontSize="11" BorderThickness="0" Margin="0,0,10,0"/>
+
+                <TextBlock Text="عدد الصفوف:" Foreground="#2C3E50" FontSize="11" VerticalAlignment="Center" Margin="20,0,10,0"/>
+                <ComboBox Width="50" SelectedItem="{Binding PageSize, UpdateSourceTrigger=PropertyChanged}" Foreground="#2C3E50" FontSize="11">
+                    <System:Int32 xmlns:System="clr-namespace:System;assembly=mscorlib">5</System:Int32>
+                    <System:Int32 xmlns:System="clr-namespace:System;assembly=mscorlib">10</System:Int32>
+                    <System:Int32 xmlns:System="clr-namespace:System;assembly=mscorlib">15</System:Int32>
+                    <System:Int32 xmlns:System="clr-namespace:System;assembly=mscorlib">20</System:Int32>
+                </ComboBox>
+            </StackPanel>
+        </Border>
+
+        <!-- Form and Buttons -->
+        <Border Grid.Row="3" Background="#F8F9FA" Padding="15">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Form Fields -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="اسم المنتج:" Foreground="#2C3E50" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Padding="8" FontSize="12" Text="{Binding Name}" Margin="0,0,0,10" IsEnabled="{Binding IsEditMode}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="الكود (SKU):" Foreground="#2C3E50" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Padding="8" FontSize="12" Text="{Binding SKU}" Margin="0,0,0,10" IsEnabled="{Binding IsEditMode}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="السعر:" Foreground="#2C3E50" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Padding="8" FontSize="12" Text="{Binding Price}" Margin="0,0,0,10" IsEnabled="{Binding IsEditMode}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="الوحدة:" Foreground="#2C3E50" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox Grid.Row="3" Grid.Column="1" Foreground="#2C3E50" FontSize="12" Padding="8" Margin="0,0,0,10" IsEnabled="{Binding IsEditMode}" IsEditable="True" Text="{Binding Unit, UpdateSourceTrigger=PropertyChanged}">
+                    <System:String xmlns:System="clr-namespace:System;assembly=mscorlib">قطعة</System:String>
+                    <System:String xmlns:System="clr-namespace:System;assembly=mscorlib">صندوق</System:String>
+                    <System:String xmlns:System="clr-namespace:System;assembly=mscorlib">كيس</System:String>
+                    <System:String xmlns:System="clr-namespace:System;assembly=mscorlib">لتر</System:String>
+                    <System:String xmlns:System="clr-namespace:System;assembly=mscorlib">كيلو</System:String>
+                    <System:String xmlns:System="clr-namespace:System;assembly=mscorlib">متر</System:String>
+                </ComboBox>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="التصنيف:" Foreground="#2C3E50" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <Grid Grid.Row="4" Grid.Column="1" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <ComboBox Grid.Column="0" ItemsSource="{Binding CategoriesForForm}" SelectedItem="{Binding Category}" Foreground="#2C3E50" FontSize="12" Padding="8" IsEnabled="{Binding IsEditMode}"/>
+
+                    <Button Grid.Column="1" Content="+ تصنيف جديد" Background="#F39C12" Foreground="White" Padding="10,8" FontSize="11" BorderThickness="0" Margin="10,0,0,0" IsEnabled="{Binding IsEditMode}" Click="AddNewCategory_Click"/>
+                </Grid>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="الوصف:" Foreground="#2C3E50" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBox Grid.Row="5" Grid.Column="1" Padding="8" FontSize="12" Text="{Binding Description}" Height="60" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,10" IsEnabled="{Binding IsEditMode}"/>
+
+                <!-- Buttons -->
+                <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <!-- ✅ زرار الإضافة - يظهر فقط عندما لا يكون هناك منتج محدد -->
+                    <Button Content="إضافة" 
+                            Command="{Binding AddCommand}" 
+                            Background="#27AE60" 
+                            Foreground="White" 
+                            Padding="12,8" 
+                            FontSize="12" 
+                            BorderThickness="0" 
+                            Margin="0,0,5,0"
+                            Visibility="{Binding SelectedProduct, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"
+                            x:Name="AddBtn"/>
+
+                    <!-- ✅ زرار التعديل - يظهر فقط عندما لا نكون في Edit Mode وعندما يكون هناك منتج محدد -->
+                    <Button Content="تعديل" 
+                            Command="{Binding EditCommand}" 
+                            Background="#3498DB" 
+                            Foreground="White" 
+                            Padding="12,8" 
+                            FontSize="12" 
+                            BorderThickness="0" 
+                            Margin="0,0,5,0"
+                            IsEnabled="{Binding SelectedProduct, Converter={StaticResource NotNullConverter}}"
+                            Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+
+                    <!-- ✅ زرار التعطيل - يظهر فقط للمنتجات النشطة -->
+                    <Button Content="تعطيل" 
+                            Command="{Binding DeleteCommand}" 
+                            Background="#E74C3C" 
+                            Foreground="White" 
+                            Padding="12,8" 
+                            FontSize="12" 
+                            BorderThickness="0" 
+                            Margin="0,0,5,0"
+                            IsEnabled="{Binding SelectedProduct, Converter={StaticResource NotNullConverter}}"
+                            Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+
+                    <!-- ✅ زرار الاسترجاع - يظهر فقط للمنتجات المعطلة -->
+                    <Button Content="استرجاع" 
+                            Command="{Binding RestoreCommand}" 
+                            Background="#27AE60" 
+                            Foreground="White" 
+                            Padding="12,8" 
+                            FontSize="12" 
+                            BorderThickness="0" 
+                            Margin="0,0,5,0"
+                            IsEnabled="{Binding SelectedProduct, Converter={StaticResource NotNullConverter}}"
+                            Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"
+                            x:Name="RestoreBtn"/>
+
+                    <!-- ✅ زرار الحفظ - يظهر فقط عندما نكون في Edit Mode -->
+                    <Button Content="حفظ" 
+                            Command="{Binding SaveCommand}" 
+                            Background="#2ECC71" 
+                            Foreground="White" 
+                            Padding="12,8" 
+                            FontSize="12" 
+                            BorderThickness="0" 
+                            Margin="0,0,5,0"
+                            Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                            x:Name="SaveBtn"/>
+
+                    <!-- ✅ زرار الإلغاء - يظهر فقط عندما نكون في Edit Mode -->
+                    <Button Content="إلغاء" 
+                            Command="{Binding CancelCommand}" 
+                            Background="#95A5A6" 
+                            Foreground="White" 
+                            Padding="12,8" 
+                            FontSize="12" 
+                            BorderThickness="0"
+                            Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                            x:Name="CancelBtn"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

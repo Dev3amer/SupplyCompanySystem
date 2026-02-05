@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="SupplyCompanySystem.Application/SupplyCompanySystem.Application.csproj" />
+  <Project Path="SupplyCompanySystem.Common/SupplyCompanySystem.Common.csproj" />
+  <Project Path="SupplyCompanySystem.Domain/SupplyCompanySystem.Domain.csproj" />
+  <Project Path="SupplyCompanySystem.Infrastructure/SupplyCompanySystem.Infrastructure.csproj" />
+  <Project Path="SupplyCompanySystem.UI/SupplyCompanySystem.UI.csproj" />
+</Solution>
