@@ -77,6 +77,7 @@ namespace SupplyCompanySystem.Domain.Entities
                 {
                     _quantity = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(QuantityFormatted)); // ✅ إضافة هذا
                     UpdateLineTotal();
                 }
             }
@@ -120,6 +121,7 @@ namespace SupplyCompanySystem.Domain.Entities
                 {
                     _discountPercentage = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(DiscountPercentageFormatted));
                     UpdateLineTotal();
                 }
             }
@@ -135,7 +137,7 @@ namespace SupplyCompanySystem.Domain.Entities
                 {
                     _itemProfitMarginPercentage = value;
                     OnPropertyChanged();
-                    // عند تغيير نسبة المكسب، نقوم بتحديث السعر
+                    OnPropertyChanged(nameof(ItemProfitMarginPercentageFormatted)); // ✅ إضافة هذا
                     ApplyProfitMarginToUnitPrice();
                 }
             }
@@ -151,6 +153,39 @@ namespace SupplyCompanySystem.Domain.Entities
                     _lineTotal = value;
                     OnPropertyChanged();
                 }
+            }
+        }
+
+        public string ItemProfitMarginPercentageFormatted
+        {
+            get
+            {
+                if (_itemProfitMarginPercentage == Math.Floor(_itemProfitMarginPercentage))
+                    return _itemProfitMarginPercentage.ToString("0");
+                else
+                    return _itemProfitMarginPercentage.ToString("0.00");
+            }
+        }
+
+        public string QuantityFormatted
+        {
+            get
+            {
+                if (_quantity == Math.Floor(_quantity))
+                    return _quantity.ToString("0");
+                else
+                    return _quantity.ToString("0.00");
+            }
+        }
+
+        public string DiscountPercentageFormatted
+        {
+            get
+            {
+                if (_discountPercentage == Math.Floor(_discountPercentage))
+                    return _discountPercentage.ToString("0");
+                else
+                    return _discountPercentage.ToString("0.00");
             }
         }
 
@@ -197,11 +232,12 @@ namespace SupplyCompanySystem.Domain.Entities
             UpdateLineTotal();
         }
 
-        // ✅ تطبيق نسبة المكسب على السعر
+        // ✅ تطبيق نسبة المكسب على السعر (فقط مكسب المنتج)
         private void ApplyProfitMarginToUnitPrice()
         {
             if (OriginalUnitPrice > 0)
             {
+                // ✅ UnitPrice يحتوي فقط على مكسب المنتج (بدون مكسب الفاتورة)
                 UnitPrice = OriginalUnitPrice + (OriginalUnitPrice * ItemProfitMarginPercentage / 100);
                 UpdateLineTotal();
             }
@@ -218,7 +254,21 @@ namespace SupplyCompanySystem.Domain.Entities
             OnPropertyChanged(nameof(ItemProfitAmount));
             OnPropertyChanged(nameof(PriceAfterProfit));
         }
+        // ✅ تحديث الإجمالي بناءً على الكمية والسعر والخصم
+        // نحتاج إلى معرفة مكسب الفاتورة من الخارج
+        public void UpdateLineTotalWithInvoiceProfit(decimal invoiceProfitMarginPercentage)
+        {
+            decimal subtotalWithProductProfit = Quantity * UnitPrice;
+            decimal discountAmount = (Quantity * OriginalUnitPrice * DiscountPercentage) / 100;
+            decimal subtotalAfterDiscount = subtotalWithProductProfit - discountAmount;
+            decimal invoiceProfitAmount = (subtotalAfterDiscount * invoiceProfitMarginPercentage) / 100;
+            LineTotal = subtotalAfterDiscount + invoiceProfitAmount;
 
+            OnPropertyChanged(nameof(DiscountAmount));
+            OnPropertyChanged(nameof(ItemProfitAmount));
+            OnPropertyChanged(nameof(PriceAfterProfit));
+            OnPropertyChanged(nameof(LineTotal));
+        }
         // ===== INotifyPropertyChanged =====
         public event PropertyChangedEventHandler PropertyChanged;
 

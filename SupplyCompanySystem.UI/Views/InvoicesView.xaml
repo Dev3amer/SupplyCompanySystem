@@ -17,6 +17,12 @@
         <conv:StatusToStringConverter x:Key="StatusToStringConverter"/>
         <conv:StatusToColorConverter x:Key="StatusToColorConverter"/>
 
+        <!-- Converter للأرقام -->
+        <conv:DecimalInputConverter x:Key="DecimalInputConverter"/>
+
+        <!-- Converter جديد للتحكم في إدخال الأرقام -->
+        <conv:NumericInputConverter x:Key="NumericInputConverter"/>
+
         <Style x:Key="CenteredCellStyle" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -183,6 +189,23 @@
             <Setter Property="Height" Value="28"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
+
+        <!-- نمط خاص لـ TextBox للتعديل -->
+        <Style x:Key="NumericTextBoxStyle" TargetType="TextBox">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Background" Value="#F8F9FA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#3498DB"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="FontSize" Value="11"/>
+            <!-- إضافة حدث PreviewTextInput للتحكم في الإدخال -->
+            <EventSetter Event="PreviewTextInput" Handler="NumericTextBox_PreviewTextInput"/>
+            <EventSetter Event="PreviewKeyDown" Handler="NumericTextBox_PreviewKeyDown"/>
+            <EventSetter Event="TextChanged" Handler="NumericTextBox_TextChanged"/>
+            <EventSetter Event="LostFocus" Handler="NumericTextBox_LostFocus"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -251,13 +274,17 @@
                                       SelectedItem="{Binding SelectedInvoiceItem, Mode=TwoWay}" 
                                       AutoGenerateColumns="False" RowHeight="32" 
                                       CanUserAddRows="False" CanUserDeleteRows="False" 
-                                      IsReadOnly="True" Style="{StaticResource NoPaddingDataGrid}" 
-                                      ColumnHeaderHeight="32">
+                                      IsReadOnly="False" Style="{StaticResource NoPaddingDataGrid}" 
+                                      ColumnHeaderHeight="32"
+                                      CellEditEnding="InvoiceItemsDataGrid_CellEditEnding"
+                                      MouseDoubleClick="InvoiceItemsDataGrid_MouseDoubleClick"
+                                      PreviewKeyDown="InvoiceItemsDataGrid_PreviewKeyDown">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="اسم المنتج" 
                                                         Binding="{Binding Product.Name}" 
                                                         Width="355" MinWidth="150" 
-                                                        HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                                        HeaderStyle="{StaticResource CenteredHeaderStyle}"
+                                                        IsReadOnly="True">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" 
                                                    BasedOn="{StaticResource RightAlignedCellStyle}"/>
@@ -266,28 +293,39 @@
                                     <DataGridTextColumn Header="السعر الأصلي" 
                                                         Binding="{Binding OriginalUnitPrice, StringFormat='0.00'}" 
                                                         Width="93" 
-                                                        HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                                        HeaderStyle="{StaticResource CenteredHeaderStyle}"
+                                                        IsReadOnly="True">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" 
                                                    BasedOn="{StaticResource CenteredCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
                                     <DataGridTextColumn Header="مكسب %" 
-                                                        Binding="{Binding EffectiveProfitMarginPercentage, StringFormat='0.00'}" 
                                                         Width="70" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                        <DataGridTextColumn.Binding>
+                                            <Binding Path="ItemProfitMarginPercentage" 
+                                                     UpdateSourceTrigger="LostFocus"
+                                                     Converter="{StaticResource DecimalInputConverter}"/>
+                                        </DataGridTextColumn.Binding>
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" 
                                                    BasedOn="{StaticResource CenteredCellStyle}">
                                                 <Setter Property="FontWeight" Value="Bold"/>
-                                                <Setter Property="Foreground" Value="#27AE60"/>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
+                                        <DataGridTextColumn.EditingElementStyle>
+                                            <Style TargetType="TextBox" BasedOn="{StaticResource NumericTextBoxStyle}">
+                                                <Setter Property="FontWeight" Value="Bold"/>
+                                                <Setter Property="Foreground" Value="#27AE60"/>
+                                            </Style>
+                                        </DataGridTextColumn.EditingElementStyle>
                                     </DataGridTextColumn>
                                     <DataGridTextColumn Header="السعر بعد المكسب" 
                                                         Binding="{Binding UnitPrice, StringFormat='0.00'}" 
                                                         Width="110" 
-                                                        HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                                        HeaderStyle="{StaticResource CenteredHeaderStyle}"
+                                                        IsReadOnly="True">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" 
                                                    BasedOn="{StaticResource CenteredCellStyle}">
@@ -296,29 +334,46 @@
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
                                     <DataGridTextColumn Header="الكمية" 
-                                                        Binding="{Binding Quantity, StringFormat='0.00'}" 
                                                         Width="60" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                        <DataGridTextColumn.Binding>
+                                            <Binding Path="Quantity" 
+                                                     UpdateSourceTrigger="LostFocus"
+                                                     Converter="{StaticResource DecimalInputConverter}"/>
+                                        </DataGridTextColumn.Binding>
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" 
                                                    BasedOn="{StaticResource CenteredCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
+                                        <DataGridTextColumn.EditingElementStyle>
+                                            <Style TargetType="TextBox" BasedOn="{StaticResource NumericTextBoxStyle}"/>
+                                        </DataGridTextColumn.EditingElementStyle>
                                     </DataGridTextColumn>
                                     <DataGridTextColumn Header="خصم %" 
-                                                        Binding="{Binding DiscountPercentage, StringFormat='0.00'}" 
                                                         Width="60" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                        <DataGridTextColumn.Binding>
+                                            <Binding Path="DiscountPercentage" 
+                                                     UpdateSourceTrigger="LostFocus"
+                                                     Converter="{StaticResource DecimalInputConverter}"/>
+                                        </DataGridTextColumn.Binding>
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" 
                                                    BasedOn="{StaticResource CenteredCellStyle}">
                                                 <Setter Property="FontWeight" Value="Bold"/>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
+                                        <DataGridTextColumn.EditingElementStyle>
+                                            <Style TargetType="TextBox" BasedOn="{StaticResource NumericTextBoxStyle}">
+                                                <Setter Property="FontWeight" Value="Bold"/>
+                                            </Style>
+                                        </DataGridTextColumn.EditingElementStyle>
                                     </DataGridTextColumn>
                                     <DataGridTextColumn Header="الإجمالي بعد مكسب الفاتورة" 
                                                         Binding="{Binding LineTotal, StringFormat='0.00'}" 
                                                         Width="160" 
-                                                        HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                                        HeaderStyle="{StaticResource CenteredHeaderStyle}"
+                                                        IsReadOnly="True">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" 
                                                    BasedOn="{StaticResource CenteredCellStyle}">

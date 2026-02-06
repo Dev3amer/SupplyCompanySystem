@@ -1,7 +1,10 @@
 ﻿using SupplyCompanySystem.UI.Services;
 using SupplyCompanySystem.UI.ViewModels;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -10,13 +13,13 @@ namespace SupplyCompanySystem.UI.Views
 {
     /// <summary>
     /// Interaction logic for InvoicesView.xaml
-    /// ComboBox قابلة للبحث مثل Google Chrome search bar
     /// </summary>
     public partial class InvoicesView : UserControl
     {
         private InvoiceViewModel _viewModel;
         private DispatcherTimer _customerSearchTimer;
         private DispatcherTimer _productSearchTimer;
+        private static readonly Regex _numericRegex = new Regex(@"^-?\d*[.,]?\d*$");
 
         public InvoicesView()
         {
@@ -28,16 +31,194 @@ namespace SupplyCompanySystem.UI.Views
 
             // إنشاء Timers للبحث المؤجل
             _customerSearchTimer = new DispatcherTimer();
-            _customerSearchTimer.Interval = TimeSpan.FromMilliseconds(300); // تأخير 300ms للبحث
+            _customerSearchTimer.Interval = TimeSpan.FromMilliseconds(300);
             _customerSearchTimer.Tick += CustomerSearchTimer_Tick;
 
             _productSearchTimer = new DispatcherTimer();
             _productSearchTimer.Interval = TimeSpan.FromMilliseconds(300);
             _productSearchTimer.Tick += ProductSearchTimer_Tick;
 
+            // ✅ إضافة أحداث DataGrid للتعديل المباشر
+            InvoiceItemsDataGrid.CellEditEnding += InvoiceItemsDataGrid_CellEditEnding;
+            InvoiceItemsDataGrid.MouseDoubleClick += InvoiceItemsDataGrid_MouseDoubleClick;
+            InvoiceItemsDataGrid.PreviewKeyDown += InvoiceItemsDataGrid_PreviewKeyDown;
+            InvoiceItemsDataGrid.PreparingCellForEdit += InvoiceItemsDataGrid_PreparingCellForEdit;
+
             // الاشتراك في حدث التفريغ لضمان تنظيف المراجع
             this.Unloaded += InvoicesView_Unloaded;
         }
+
+        #region أحداث التحكم الرقمية
+
+        private void NumericTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox == null) return;
+
+            string newText = GetProposedText(textBox, e.Text);
+
+            // التحقق من صحة الإدخال
+            if (!IsValidNumericInput(newText))
+            {
+                e.Handled = true;
+                System.Media.SystemSounds.Beep.Play();
+            }
+        }
+
+        private void NumericTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox == null) return;
+
+            // منع النقطتين العشريتين
+            string text = textBox.Text;
+            int dotCount = text.Count(c => c == '.');
+            int commaCount = text.Count(c => c == ',');
+
+            if (dotCount > 1 || commaCount > 1)
+            {
+                // إزالة الأحرار الزائدة
+                string cleanedText = CleanExtraSeparators(text);
+                textBox.Text = cleanedText;
+                textBox.CaretIndex = cleanedText.Length;
+            }
+        }
+
+        private void NumericTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox == null) return;
+
+            // السماح بـ:
+            // - الأرقام
+            // - النقطة (.)
+            // - الفاصلة (,)
+            // - Delete, Backspace, Tab, Enter
+            // - مفاتيح الأسهم
+            // - Home, End
+            if ((e.Key >= Key.D0 && e.Key <= Key.D9) ||
+                (e.Key >= Key.NumPad0 && e.Key <= Key.NumPad9) ||
+                e.Key == Key.Decimal || e.Key == Key.OemPeriod || e.Key == Key.OemComma ||
+                e.Key == Key.Delete || e.Key == Key.Back ||
+                e.Key == Key.Tab || e.Key == Key.Enter ||
+                e.Key == Key.Left || e.Key == Key.Right || e.Key == Key.Up || e.Key == Key.Down ||
+                e.Key == Key.Home || e.Key == Key.End ||
+                e.Key == Key.Escape)
+            {
+                // السماح بهذه المفاتيح
+                e.Handled = false;
+            }
+            else if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                // التحقق من المحتوى قبل اللصق
+                if (Clipboard.ContainsText())
+                {
+                    string clipboardText = Clipboard.GetText();
+                    string proposedText = GetProposedText(textBox, clipboardText);
+
+                    if (!IsValidNumericInput(proposedText))
+                    {
+                        e.Handled = true;
+                        MessageBox.Show("يمكن لصق الأرقام فقط", "تنبيه",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
+            }
+            else
+            {
+                // رفض جميع المفاتيح الأخرى
+                e.Handled = true;
+            }
+        }
+
+        private void NumericTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox == null) return;
+
+            // تنسيق النص عند فقدان التركيز
+            if (!string.IsNullOrWhiteSpace(textBox.Text))
+            {
+                string text = textBox.Text.Trim();
+                text = text.Replace(',', '.');
+
+                if (decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal result))
+                {
+                    // تنسيق الرقم
+                    if (result == Math.Floor(result))
+                    {
+                        textBox.Text = result.ToString("0");
+                    }
+                    else
+                    {
+                        textBox.Text = result.ToString("0.##");
+                    }
+                }
+            }
+        }
+
+        private string GetProposedText(TextBox textBox, string newText)
+        {
+            string currentText = textBox.Text ?? "";
+            int selectionStart = textBox.SelectionStart;
+            int selectionLength = textBox.SelectionLength;
+
+            string beforeSelection = currentText.Substring(0, selectionStart);
+            string afterSelection = currentText.Substring(selectionStart + selectionLength);
+
+            return beforeSelection + newText + afterSelection;
+        }
+
+        private bool IsValidNumericInput(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return true;
+
+            // السماح بإشارة الناقص في البداية فقط
+            if (text.StartsWith("-"))
+            {
+                text = text.Substring(1);
+            }
+
+            // التحقق من صيغة الرقم
+            return _numericRegex.IsMatch(text);
+        }
+
+        private string CleanExtraSeparators(string text)
+        {
+            bool hasDot = false;
+            bool hasComma = false;
+            char[] result = new char[text.Length];
+            int resultIndex = 0;
+
+            foreach (char c in text)
+            {
+                if (c == '.')
+                {
+                    if (!hasDot)
+                    {
+                        result[resultIndex++] = c;
+                        hasDot = true;
+                    }
+                }
+                else if (c == ',')
+                {
+                    if (!hasComma)
+                    {
+                        result[resultIndex++] = c;
+                        hasComma = true;
+                    }
+                }
+                else
+                {
+                    result[resultIndex++] = c;
+                }
+            }
+
+            return new string(result, 0, resultIndex);
+        }
+
+        #endregion
 
         #region Customer ComboBox Events
 
@@ -271,6 +452,183 @@ namespace SupplyCompanySystem.UI.Views
 
         #endregion
 
+        #region أحداث تعديل DataGrid
+
+        /// <summary>
+        /// حدث عند بدء إعداد الخلية للتعديل
+        /// </summary>
+        private void InvoiceItemsDataGrid_PreparingCellForEdit(object sender, DataGridPreparingCellForEditEventArgs e)
+        {
+            var textBox = e.EditingElement as TextBox;
+            if (textBox != null)
+            {
+                // ✅ اختيار النص بالكامل عند بدء التعديل
+                textBox.SelectAll();
+
+                // ✅ تعيين Culture لـ en-US للسماح بالنقطة العشرية
+                textBox.Language = System.Windows.Markup.XmlLanguage.GetLanguage("en-US");
+            }
+        }
+
+        /// <summary>
+        /// حدث عند انتهاء تعديل خلية في جدول بنود الفاتورة
+        /// </summary>
+        private void InvoiceItemsDataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            if (e.EditAction == DataGridEditAction.Commit && _viewModel != null)
+            {
+                var column = e.Column as DataGridTextColumn;
+                if (column != null)
+                {
+                    // ✅ الحصول على العنصر المعدل
+                    var item = e.Row.Item as Domain.Entities.InvoiceItem;
+                    if (item != null)
+                    {
+                        // ✅ الحصول على القيمة الجديدة من TextBox
+                        var textBox = e.EditingElement as TextBox;
+                        if (textBox != null)
+                        {
+                            string newValue = textBox.Text;
+
+                            // ✅ تحديد نوع الحقل الذي تم تعديله
+                            string columnHeader = column.Header?.ToString() ?? "";
+
+                            // ✅ معالجة التحديث بناءً على نوع الحقل
+                            switch (columnHeader)
+                            {
+                                case "مكسب %":
+                                    // تحديث نسبة مكسب المنتج
+                                    if (decimal.TryParse(newValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal profitMargin))
+                                    {
+                                        item.ItemProfitMarginPercentage = profitMargin;
+                                    }
+                                    else if (decimal.TryParse(newValue.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out profitMargin))
+                                    {
+                                        item.ItemProfitMarginPercentage = profitMargin;
+                                    }
+                                    break;
+
+                                case "الكمية":
+                                    // تحديث الكمية
+                                    if (decimal.TryParse(newValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal quantity))
+                                    {
+                                        item.Quantity = quantity;
+                                    }
+                                    else if (decimal.TryParse(newValue.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out quantity))
+                                    {
+                                        item.Quantity = quantity;
+                                    }
+                                    break;
+
+                                case "خصم %":
+                                    // تحديث نسبة الخصم
+                                    if (decimal.TryParse(newValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal discount))
+                                    {
+                                        item.DiscountPercentage = discount;
+                                    }
+                                    else if (decimal.TryParse(newValue.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out discount))
+                                    {
+                                        item.DiscountPercentage = discount;
+                                    }
+                                    break;
+                            }
+
+                            // ✅ إعادة حساب الإجماليات عبر ViewModel
+                            _viewModel.RecalculateTotals();
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// حدث عند النقر المزدوج لتفعيل التعديل
+        /// </summary>
+        private void InvoiceItemsDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (InvoiceItemsDataGrid.SelectedItem != null)
+            {
+                var hitTest = VisualTreeHelper.HitTest(InvoiceItemsDataGrid, e.GetPosition(InvoiceItemsDataGrid));
+                if (hitTest != null)
+                {
+                    var cell = FindVisualParent<DataGridCell>(hitTest.VisualHit);
+                    if (cell != null && !cell.IsEditing && !cell.IsReadOnly)
+                    {
+                        InvoiceItemsDataGrid.BeginEdit();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// حدث عند الضغط على Enter لتفعيل التعديل
+        /// </summary>
+        private void InvoiceItemsDataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && InvoiceItemsDataGrid.SelectedItem != null)
+            {
+                var cell = GetCurrentCell(InvoiceItemsDataGrid);
+                if (cell != null && !cell.IsEditing && !cell.IsReadOnly)
+                {
+                    InvoiceItemsDataGrid.BeginEdit();
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.F2 && InvoiceItemsDataGrid.SelectedItem != null)
+            {
+                // F2 لتفعيل التعديل
+                var cell = GetCurrentCell(InvoiceItemsDataGrid);
+                if (cell != null && !cell.IsEditing && !cell.IsReadOnly)
+                {
+                    InvoiceItemsDataGrid.BeginEdit();
+                    e.Handled = true;
+                }
+            }
+        }
+
+        // دالة مساعدة للحصول على الخلية الحالية
+        private DataGridCell GetCurrentCell(DataGrid dataGrid)
+        {
+            if (dataGrid.CurrentCell != null)
+            {
+                var cellInfo = dataGrid.CurrentCell;
+                var row = dataGrid.ItemContainerGenerator.ContainerFromItem(cellInfo.Item) as DataGridRow;
+                if (row != null)
+                {
+                    var presenter = GetVisualChild<DataGridCellsPresenter>(row);
+                    if (presenter != null)
+                    {
+                        var cell = presenter.ItemContainerGenerator.ContainerFromIndex(cellInfo.Column.DisplayIndex) as DataGridCell;
+                        return cell;
+                    }
+                }
+            }
+            return null;
+        }
+
+        // دالة مساعدة للبحث في الشجرة المرئية
+        private T GetVisualChild<T>(DependencyObject parent) where T : Visual
+        {
+            T child = default(T);
+            int numVisuals = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < numVisuals; i++)
+            {
+                Visual v = (Visual)VisualTreeHelper.GetChild(parent, i);
+                child = v as T;
+                if (child == null)
+                {
+                    child = GetVisualChild<T>(v);
+                }
+                if (child != null)
+                {
+                    break;
+                }
+            }
+            return child;
+        }
+
+        #endregion
+
         #region إلغاء التحديد عند النقر في أي مكان
 
         /// <summary>
@@ -366,6 +724,15 @@ namespace SupplyCompanySystem.UI.Views
         {
             try
             {
+                // ✅ إزالة أحداث DataGrid
+                if (InvoiceItemsDataGrid != null)
+                {
+                    InvoiceItemsDataGrid.CellEditEnding -= InvoiceItemsDataGrid_CellEditEnding;
+                    InvoiceItemsDataGrid.MouseDoubleClick -= InvoiceItemsDataGrid_MouseDoubleClick;
+                    InvoiceItemsDataGrid.PreviewKeyDown -= InvoiceItemsDataGrid_PreviewKeyDown;
+                    InvoiceItemsDataGrid.PreparingCellForEdit -= InvoiceItemsDataGrid_PreparingCellForEdit;
+                }
+
                 // تنظيف Timers
                 if (_customerSearchTimer != null)
                 {
@@ -402,10 +769,5 @@ namespace SupplyCompanySystem.UI.Views
         }
 
         #endregion
-
-        private void TextBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-
-        }
     }
 }

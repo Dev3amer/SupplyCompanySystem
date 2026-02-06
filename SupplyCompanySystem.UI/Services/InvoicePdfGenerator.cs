@@ -226,15 +226,20 @@ namespace SupplyCompanySystem.UI.Services
                                                 cell.AlignCenter();
                                         }
 
+                                        // ✅ حساب السعر النهائي الذي يظهر للعميل
+                                        // هذا السعر يحتوي على: السعر الأصلي + مكسب المنتج + مكسب الفاتورة
+                                        decimal finalUnitPriceForCustomer = CalculateFinalUnitPriceForPdf(item, invoice);
+
                                         Cell(rowNum.ToString());
                                         Cell(item.Product?.SKU ?? ""); // الكود
                                         Cell(item.Product?.Name ?? "", true); // اسم الصنف
                                         Cell(item.Product?.Unit ?? ""); // الوحدة
                                         Cell(item.Quantity.ToString()); // الكمية
-                                        // ✅ سعر الوحدة بعد المكسب (UnitPrice)
-                                        Cell(item.UnitPrice.ToString("0.00"));
-                                        // ✅ الإجمالي للصنف
-                                        Cell(item.LineTotal.ToString("0.00"));
+                                        // ✅ سعر الوحدة النهائي (بعد جميع المكاسب)
+                                        Cell(finalUnitPriceForCustomer.ToString("0.00"));
+                                        // ✅ الإجمالي النهائي للصنف (الكمية × السعر النهائي - الخصم)
+                                        decimal finalLineTotal = CalculateFinalLineTotalForPdf(item, invoice);
+                                        Cell(finalLineTotal.ToString("0.00"));
 
                                         rowNum++;
                                     }
@@ -302,30 +307,33 @@ namespace SupplyCompanySystem.UI.Services
                                         });
                                     }
 
-                                    // ✅ تم حذف حساب إجمالي خصم المنتجات
-                                    decimal totalBeforeDiscount = invoice.Items.Sum(i => i.Quantity * i.UnitPrice);
-                                    decimal invoiceDiscountAmount = (totalBeforeDiscount * invoice.InvoiceDiscountPercentage) / 100;
+                                    // ✅ حساب الإجماليات النهائية للفاتورة (كما تظهر للعميل)
+                                    decimal totalForCustomer = CalculateTotalForCustomer(invoice);
+                                    decimal invoiceDiscountForCustomer = CalculateInvoiceDiscountForCustomer(invoice, totalForCustomer);
+                                    decimal finalAmountForCustomer = totalForCustomer - invoiceDiscountForCustomer;
 
                                     SummaryRow(
                                         "إجمالي الفاتورة:",
-                                        totalBeforeDiscount.ToString("0.00")
+                                        totalForCustomer.ToString("0.00")
                                     );
 
-                                    SummaryRow(
-                                        "خصم الفاتورة:",
-                                        invoiceDiscountAmount.ToString("0.00")
-                                    );
+                                    if (invoice.InvoiceDiscountPercentage > 0)
+                                    {
+                                        SummaryRow(
+                                            "خصم الفاتورة:",
+                                            invoiceDiscountForCustomer.ToString("0.00")
+                                        );
+                                    }
 
                                     col.Item().PaddingTop(8);
                                     col.Item().LineHorizontal(2);
 
                                     SummaryRow(
                                         "الإجمالي النهائي:",
-                                        invoice.FinalAmount.ToString("0.00"),
+                                        finalAmountForCustomer.ToString("0.00"),
                                         true
                                     );
 
-                                    // ✅ تم حذف المكسب الكلي
                                     col.Item().PaddingTop(15);
                                     col.Item().Row(row =>
                                     {
@@ -335,7 +343,7 @@ namespace SupplyCompanySystem.UI.Services
                                             .AlignRight();
 
                                         row.RelativeColumn(2)
-                                            .Text(ArabicNumberToWords.ConvertToArabicWords(invoice.FinalAmount))
+                                            .Text(ArabicNumberToWords.ConvertToArabicWords(finalAmountForCustomer))
                                             .AlignRight()
                                             .FontSize(10);
                                     });
@@ -381,6 +389,68 @@ namespace SupplyCompanySystem.UI.Services
             {
                 throw new Exception($"خطأ في إنشاء PDF: {ex.Message}");
             }
+        }
+
+        // ✅ دالة جديدة لحساب سعر الوحدة النهائي للـ PDF
+        private static decimal CalculateFinalUnitPriceForPdf(InvoiceItem item, Invoice invoice)
+        {
+            if (item == null || item.OriginalUnitPrice <= 0)
+                return 0;
+
+            // 1. السعر بعد مكسب المنتج
+            decimal priceAfterProductProfit = item.OriginalUnitPrice +
+                (item.OriginalUnitPrice * item.ItemProfitMarginPercentage / 100);
+
+            // 2. السعر بعد مكسب الفاتورة (يطبق على السعر بعد مكسب المنتج)
+            decimal finalPrice = priceAfterProductProfit +
+                (priceAfterProductProfit * invoice.ProfitMarginPercentage / 100);
+
+            return finalPrice;
+        }
+
+        // ✅ دالة جديدة لحساب الإجمالي النهائي للبند في الـ PDF
+        private static decimal CalculateFinalLineTotalForPdf(InvoiceItem item, Invoice invoice)
+        {
+            if (item == null)
+                return 0;
+
+            // 1. حساب السعر النهائي للوحدة
+            decimal finalUnitPrice = CalculateFinalUnitPriceForPdf(item, invoice);
+
+            // 2. حساب الإجمالي قبل الخصم
+            decimal totalBeforeDiscount = item.Quantity * finalUnitPrice;
+
+            // 3. حساب الخصم على السعر الأصلي
+            decimal discountAmount = (item.Quantity * item.OriginalUnitPrice * item.DiscountPercentage) / 100;
+
+            // 4. الإجمالي النهائي
+            return totalBeforeDiscount - discountAmount;
+        }
+
+        // ✅ دالة جديدة لحساب الإجمالي الكلي للفاتورة كما يظهر للعميل
+        private static decimal CalculateTotalForCustomer(Invoice invoice)
+        {
+            if (invoice?.Items == null || invoice.Items.Count == 0)
+                return 0;
+
+            decimal total = 0;
+            foreach (var item in invoice.Items)
+            {
+                // ✅ استخدام الدالة التي تحسب الإجمالي النهائي للبند
+                total += CalculateFinalLineTotalForPdf(item, invoice);
+            }
+
+            return total;
+        }
+
+        // ✅ دالة جديدة لحساب خصم الفاتورة كما يظهر للعميل
+        private static decimal CalculateInvoiceDiscountForCustomer(Invoice invoice, decimal totalForCustomer)
+        {
+            if (invoice == null || invoice.InvoiceDiscountPercentage <= 0)
+                return 0;
+
+            // ✅ الخصم يطبق على الإجمالي النهائي للفاتورة
+            return (totalForCustomer * invoice.InvoiceDiscountPercentage) / 100;
         }
 
         public static string GenerateInvoicePdf(Invoice invoice)
