@@ -11,9 +11,7 @@ using System.Windows.Threading;
 
 namespace SupplyCompanySystem.UI.Views
 {
-    /// <summary>
-    /// Interaction logic for InvoicesView.xaml
-    /// </summary>
+
     public partial class InvoicesView : UserControl
     {
         private InvoiceViewModel _viewModel;
@@ -25,11 +23,9 @@ namespace SupplyCompanySystem.UI.Views
         {
             InitializeComponent();
 
-            // حقن الـ ViewModel وتعيينه كـ DataContext
             _viewModel = ServiceProvider.GetService<InvoiceViewModel>();
             this.DataContext = _viewModel;
 
-            // إنشاء Timers للبحث المؤجل
             _customerSearchTimer = new DispatcherTimer();
             _customerSearchTimer.Interval = TimeSpan.FromMilliseconds(300);
             _customerSearchTimer.Tick += CustomerSearchTimer_Tick;
@@ -38,13 +34,11 @@ namespace SupplyCompanySystem.UI.Views
             _productSearchTimer.Interval = TimeSpan.FromMilliseconds(300);
             _productSearchTimer.Tick += ProductSearchTimer_Tick;
 
-            // ✅ إضافة أحداث DataGrid للتعديل المباشر
             InvoiceItemsDataGrid.CellEditEnding += InvoiceItemsDataGrid_CellEditEnding;
             InvoiceItemsDataGrid.MouseDoubleClick += InvoiceItemsDataGrid_MouseDoubleClick;
             InvoiceItemsDataGrid.PreviewKeyDown += InvoiceItemsDataGrid_PreviewKeyDown;
             InvoiceItemsDataGrid.PreparingCellForEdit += InvoiceItemsDataGrid_PreparingCellForEdit;
 
-            // الاشتراك في حدث التفريغ لضمان تنظيف المراجع
             this.Unloaded += InvoicesView_Unloaded;
         }
 
@@ -57,7 +51,6 @@ namespace SupplyCompanySystem.UI.Views
 
             string newText = GetProposedText(textBox, e.Text);
 
-            // التحقق من صحة الإدخال
             if (!IsValidNumericInput(newText))
             {
                 e.Handled = true;
@@ -70,14 +63,12 @@ namespace SupplyCompanySystem.UI.Views
             var textBox = sender as TextBox;
             if (textBox == null) return;
 
-            // منع النقطتين العشريتين
             string text = textBox.Text;
             int dotCount = text.Count(c => c == '.');
             int commaCount = text.Count(c => c == ',');
 
             if (dotCount > 1 || commaCount > 1)
             {
-                // إزالة الأحرار الزائدة
                 string cleanedText = CleanExtraSeparators(text);
                 textBox.Text = cleanedText;
                 textBox.CaretIndex = cleanedText.Length;
@@ -89,13 +80,6 @@ namespace SupplyCompanySystem.UI.Views
             var textBox = sender as TextBox;
             if (textBox == null) return;
 
-            // السماح بـ:
-            // - الأرقام
-            // - النقطة (.)
-            // - الفاصلة (,)
-            // - Delete, Backspace, Tab, Enter
-            // - مفاتيح الأسهم
-            // - Home, End
             if ((e.Key >= Key.D0 && e.Key <= Key.D9) ||
                 (e.Key >= Key.NumPad0 && e.Key <= Key.NumPad9) ||
                 e.Key == Key.Decimal || e.Key == Key.OemPeriod || e.Key == Key.OemComma ||
@@ -105,12 +89,10 @@ namespace SupplyCompanySystem.UI.Views
                 e.Key == Key.Home || e.Key == Key.End ||
                 e.Key == Key.Escape)
             {
-                // السماح بهذه المفاتيح
                 e.Handled = false;
             }
             else if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
             {
-                // التحقق من المحتوى قبل اللصق
                 if (Clipboard.ContainsText())
                 {
                     string clipboardText = Clipboard.GetText();
@@ -126,7 +108,6 @@ namespace SupplyCompanySystem.UI.Views
             }
             else
             {
-                // رفض جميع المفاتيح الأخرى
                 e.Handled = true;
             }
         }
@@ -135,8 +116,6 @@ namespace SupplyCompanySystem.UI.Views
         {
             var textBox = sender as TextBox;
             if (textBox == null) return;
-
-            // تنسيق النص عند فقدان التركيز
             if (!string.IsNullOrWhiteSpace(textBox.Text))
             {
                 string text = textBox.Text.Trim();
@@ -144,7 +123,6 @@ namespace SupplyCompanySystem.UI.Views
 
                 if (decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal result))
                 {
-                    // تنسيق الرقم
                     if (result == Math.Floor(result))
                     {
                         textBox.Text = result.ToString("0");
@@ -174,13 +152,11 @@ namespace SupplyCompanySystem.UI.Views
             if (string.IsNullOrEmpty(text))
                 return true;
 
-            // السماح بإشارة الناقص في البداية فقط
             if (text.StartsWith("-"))
             {
                 text = text.Substring(1);
             }
 
-            // التحقق من صيغة الرقم
             return _numericRegex.IsMatch(text);
         }
 
@@ -227,7 +203,6 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
-            // فتح القائمة عند الضغط على أي مفتاح كتابة
             if (e.Key >= Key.A && e.Key <= Key.Z ||
                 e.Key >= Key.D0 && e.Key <= Key.D9 ||
                 e.Key == Key.Space || e.Key == Key.OemComma || e.Key == Key.OemPeriod)
@@ -237,13 +212,11 @@ namespace SupplyCompanySystem.UI.Views
                     comboBox.IsDropDownOpen = true;
                 }
             }
-            // إغلاق القائمة عند الضغط على Enter
             else if (e.Key == Key.Enter || e.Key == Key.Return)
             {
                 comboBox.IsDropDownOpen = false;
                 e.Handled = true;
             }
-            // تنظيف البحث عند الضغط على Escape
             else if (e.Key == Key.Escape)
             {
                 comboBox.Text = string.Empty;
@@ -251,7 +224,6 @@ namespace SupplyCompanySystem.UI.Views
                 comboBox.IsDropDownOpen = false;
                 e.Handled = true;
             }
-            // فتح القائمة عند الضغط على الأسهم
             else if (e.Key == Key.Down || e.Key == Key.Up)
             {
                 if (!comboBox.IsDropDownOpen)
@@ -267,11 +239,9 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
-            // إعادة تشغيل Timer للبحث المؤجل
             _customerSearchTimer.Stop();
             _customerSearchTimer.Start();
 
-            // التأكد من أن القائمة مفتوحة أثناء الكتابة
             if (!comboBox.IsDropDownOpen)
             {
                 comboBox.IsDropDownOpen = true;
@@ -283,7 +253,6 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null || string.IsNullOrWhiteSpace(comboBox.Text)) return;
 
-            // تحديث الفلترة عند فتح القائمة
             _viewModel.CustomerSearchText = comboBox.Text;
         }
 
@@ -292,12 +261,10 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
-            // إذا تم اختيار عنصر، أغلق القائمة
             if (comboBox.SelectedItem != null)
             {
                 comboBox.IsDropDownOpen = false;
 
-                // تحديث نص البحث ليكون اسم العميل المختار
                 var customer = comboBox.SelectedItem as Domain.Entities.Customer;
                 if (customer != null)
                 {
@@ -311,7 +278,6 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
-            // إغلاق القائمة بعد فترة قصيرة من فقدان التركيز
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 comboBox.IsDropDownOpen = false;
@@ -322,12 +288,10 @@ namespace SupplyCompanySystem.UI.Views
         {
             _customerSearchTimer.Stop();
 
-            // تحديث نص البحث في ViewModel
             if (CustomerComboBox != null)
             {
                 _viewModel.CustomerSearchText = CustomerComboBox.Text;
 
-                // التأكد من أن القائمة مفتوحة إذا كان هناك نص
                 if (!string.IsNullOrWhiteSpace(CustomerComboBox.Text) && !CustomerComboBox.IsDropDownOpen)
                 {
                     CustomerComboBox.IsDropDownOpen = true;
@@ -344,7 +308,6 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
-            // فتح القائمة عند الضغط على أي مفتاح كتابة
             if (e.Key >= Key.A && e.Key <= Key.Z ||
                 e.Key >= Key.D0 && e.Key <= Key.D9 ||
                 e.Key == Key.Space || e.Key == Key.OemComma || e.Key == Key.OemPeriod)
@@ -354,13 +317,11 @@ namespace SupplyCompanySystem.UI.Views
                     comboBox.IsDropDownOpen = true;
                 }
             }
-            // إغلاق القائمة عند الضغط على Enter
             else if (e.Key == Key.Enter || e.Key == Key.Return)
             {
                 comboBox.IsDropDownOpen = false;
                 e.Handled = true;
             }
-            // تنظيف البحث عند الضغط على Escape
             else if (e.Key == Key.Escape)
             {
                 comboBox.Text = string.Empty;
@@ -368,7 +329,6 @@ namespace SupplyCompanySystem.UI.Views
                 comboBox.IsDropDownOpen = false;
                 e.Handled = true;
             }
-            // فتح القائمة عند الضغط على الأسهم
             else if (e.Key == Key.Down || e.Key == Key.Up)
             {
                 if (!comboBox.IsDropDownOpen)
@@ -384,11 +344,9 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
-            // إعادة تشغيل Timer للبحث المؤجل
             _productSearchTimer.Stop();
             _productSearchTimer.Start();
 
-            // التأكد من أن القائمة مفتوحة أثناء الكتابة
             if (!comboBox.IsDropDownOpen)
                 comboBox.IsDropDownOpen = true;
         }
@@ -398,7 +356,6 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null || string.IsNullOrWhiteSpace(comboBox.Text)) return;
 
-            // تحديث الفلترة عند فتح القائمة
             _viewModel.ProductSearchText = comboBox.Text;
         }
 
@@ -407,12 +364,10 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
-            // إذا تم اختيار عنصر، أغلق القائمة
             if (comboBox.SelectedItem != null)
             {
                 comboBox.IsDropDownOpen = false;
 
-                // تحديث نص البحث ليكون اسم المنتج المختار
                 var product = comboBox.SelectedItem as Domain.Entities.Product;
                 if (product != null)
                 {
@@ -426,7 +381,6 @@ namespace SupplyCompanySystem.UI.Views
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
-            // إغلاق القائمة بعد فترة قصيرة من فقدان التركيز
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 comboBox.IsDropDownOpen = false;
@@ -437,12 +391,10 @@ namespace SupplyCompanySystem.UI.Views
         {
             _productSearchTimer.Stop();
 
-            // تحديث نص البحث في ViewModel
             if (ProductComboBox != null)
             {
                 _viewModel.ProductSearchText = ProductComboBox.Text;
 
-                // التأكد من أن القائمة مفتوحة إذا كان هناك نص
                 if (!string.IsNullOrWhiteSpace(ProductComboBox.Text) && !ProductComboBox.IsDropDownOpen)
                 {
                     ProductComboBox.IsDropDownOpen = true;
@@ -454,25 +406,17 @@ namespace SupplyCompanySystem.UI.Views
 
         #region أحداث تعديل DataGrid
 
-        /// <summary>
-        /// حدث عند بدء إعداد الخلية للتعديل
-        /// </summary>
         private void InvoiceItemsDataGrid_PreparingCellForEdit(object sender, DataGridPreparingCellForEditEventArgs e)
         {
             var textBox = e.EditingElement as TextBox;
             if (textBox != null)
             {
-                // ✅ اختيار النص بالكامل عند بدء التعديل
                 textBox.SelectAll();
 
-                // ✅ تعيين Culture لـ en-US للسماح بالنقطة العشرية
                 textBox.Language = System.Windows.Markup.XmlLanguage.GetLanguage("en-US");
             }
         }
 
-        /// <summary>
-        /// حدث عند انتهاء تعديل خلية في جدول بنود الفاتورة
-        /// </summary>
         private void InvoiceItemsDataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
             if (e.EditAction == DataGridEditAction.Commit && _viewModel != null)
@@ -480,24 +424,19 @@ namespace SupplyCompanySystem.UI.Views
                 var column = e.Column as DataGridTextColumn;
                 if (column != null)
                 {
-                    // ✅ الحصول على العنصر المعدل
                     var item = e.Row.Item as Domain.Entities.InvoiceItem;
                     if (item != null)
                     {
-                        // ✅ الحصول على القيمة الجديدة من TextBox
                         var textBox = e.EditingElement as TextBox;
                         if (textBox != null)
                         {
                             string newValue = textBox.Text;
 
-                            // ✅ تحديد نوع الحقل الذي تم تعديله
                             string columnHeader = column.Header?.ToString() ?? "";
 
-                            // ✅ معالجة التحديث بناءً على نوع الحقل
                             switch (columnHeader)
                             {
                                 case "مكسب %":
-                                    // تحديث نسبة مكسب المنتج
                                     if (decimal.TryParse(newValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal profitMargin))
                                     {
                                         item.ItemProfitMarginPercentage = profitMargin;
@@ -509,7 +448,6 @@ namespace SupplyCompanySystem.UI.Views
                                     break;
 
                                 case "الكمية":
-                                    // تحديث الكمية
                                     if (decimal.TryParse(newValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal quantity))
                                     {
                                         item.Quantity = quantity;
@@ -521,7 +459,6 @@ namespace SupplyCompanySystem.UI.Views
                                     break;
 
                                 case "خصم %":
-                                    // تحديث نسبة الخصم
                                     if (decimal.TryParse(newValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal discount))
                                     {
                                         item.DiscountPercentage = discount;
@@ -533,17 +470,12 @@ namespace SupplyCompanySystem.UI.Views
                                     break;
                             }
 
-                            // ✅ إعادة حساب الإجماليات عبر ViewModel
                             _viewModel.RecalculateTotals();
                         }
                     }
                 }
             }
         }
-
-        /// <summary>
-        /// حدث عند النقر المزدوج لتفعيل التعديل
-        /// </summary>
         private void InvoiceItemsDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (InvoiceItemsDataGrid.SelectedItem != null)
@@ -559,10 +491,6 @@ namespace SupplyCompanySystem.UI.Views
                 }
             }
         }
-
-        /// <summary>
-        /// حدث عند الضغط على Enter لتفعيل التعديل
-        /// </summary>
         private void InvoiceItemsDataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter && InvoiceItemsDataGrid.SelectedItem != null)
@@ -576,7 +504,6 @@ namespace SupplyCompanySystem.UI.Views
             }
             else if (e.Key == Key.F2 && InvoiceItemsDataGrid.SelectedItem != null)
             {
-                // F2 لتفعيل التعديل
                 var cell = GetCurrentCell(InvoiceItemsDataGrid);
                 if (cell != null && !cell.IsEditing && !cell.IsReadOnly)
                 {
@@ -585,8 +512,6 @@ namespace SupplyCompanySystem.UI.Views
                 }
             }
         }
-
-        // دالة مساعدة للحصول على الخلية الحالية
         private DataGridCell GetCurrentCell(DataGrid dataGrid)
         {
             if (dataGrid.CurrentCell != null)
@@ -605,8 +530,6 @@ namespace SupplyCompanySystem.UI.Views
             }
             return null;
         }
-
-        // دالة مساعدة للبحث في الشجرة المرئية
         private T GetVisualChild<T>(DependencyObject parent) where T : Visual
         {
             T child = default(T);
@@ -631,39 +554,30 @@ namespace SupplyCompanySystem.UI.Views
 
         #region إلغاء التحديد عند النقر في أي مكان
 
-        /// <summary>
-        /// حدث للنقر في أي مكان في UserControl لإلغاء التحديد
-        /// </summary>
         private void UserControl_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            // ✅ التحقق مما إذا كان النقر على زر
             var source = e.OriginalSource as DependencyObject;
             var button = FindVisualParent<Button>(source);
 
             if (button != null)
             {
-                // إذا كان النقر على زر، نتركه يعمل ولا تلغي التحديد
                 return;
             }
 
-            // التحقق مما إذا كان النقر على DataGrid بنود الفاتورة
             if (IsClickOnDataGrid(e, InvoiceItemsDataGrid))
             {
                 return;
             }
 
-            // التحقق مما إذا كان النقر على DataGrid الفواتير
             if (IsClickOnDataGrid(e, InvoicesDataGrid))
             {
                 return;
             }
 
-            // النقر في أي مكان آخر يلغي التحديد
             ClearDataGridSelection(InvoiceItemsDataGrid, () => _viewModel.SelectedInvoiceItem = null);
             ClearDataGridSelection(InvoicesDataGrid, () => _viewModel.SelectedInvoiceFromList = null);
         }
 
-        // دالة مساعدة للعثور على عنصر أب في الشجرة المرئية
         private T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
         {
             while (child != null)
@@ -674,17 +588,12 @@ namespace SupplyCompanySystem.UI.Views
             }
             return null;
         }
-
-        /// <summary>
-        /// التحقق مما إذا كان النقر على DataGrid معين
-        /// </summary>
         private bool IsClickOnDataGrid(MouseButtonEventArgs e, DataGrid dataGrid)
         {
             if (dataGrid == null || !dataGrid.IsVisible) return false;
 
             try
             {
-                // التحقق من أن النقر داخل حدود DataGrid
                 var hitTest = VisualTreeHelper.HitTest(dataGrid, e.GetPosition(dataGrid));
                 return hitTest != null;
             }
@@ -693,26 +602,19 @@ namespace SupplyCompanySystem.UI.Views
                 return false;
             }
         }
-
-        /// <summary>
-        /// إلغاء التحديد من DataGrid وتحديث ViewModel
-        /// </summary>
         private void ClearDataGridSelection(DataGrid dataGrid, Action updateViewModel)
         {
             if (dataGrid == null) return;
 
             try
             {
-                // إلغاء التحديد من DataGrid
                 dataGrid.UnselectAll();
                 dataGrid.SelectedItem = null;
 
-                // تحديث ViewModel
                 updateViewModel?.Invoke();
             }
             catch
             {
-                // تجاهل الأخطاء
             }
         }
 
@@ -724,7 +626,6 @@ namespace SupplyCompanySystem.UI.Views
         {
             try
             {
-                // ✅ إزالة أحداث DataGrid
                 if (InvoiceItemsDataGrid != null)
                 {
                     InvoiceItemsDataGrid.CellEditEnding -= InvoiceItemsDataGrid_CellEditEnding;
@@ -733,7 +634,6 @@ namespace SupplyCompanySystem.UI.Views
                     InvoiceItemsDataGrid.PreparingCellForEdit -= InvoiceItemsDataGrid_PreparingCellForEdit;
                 }
 
-                // تنظيف Timers
                 if (_customerSearchTimer != null)
                 {
                     _customerSearchTimer.Stop();
@@ -748,23 +648,19 @@ namespace SupplyCompanySystem.UI.Views
                     _productSearchTimer = null;
                 }
 
-                // فك ارتباط الحدث نفسه
                 this.Unloaded -= InvoicesView_Unloaded;
                 this.PreviewMouseDown -= UserControl_PreviewMouseDown;
 
-                // تنظيف الـ ViewModel إذا كان يدعم التخلص من الموارد
                 if (_viewModel is IDisposable disposable)
                 {
                     disposable.Dispose();
                 }
 
-                // قطع المرجع للـ DataContext للسماح لـ GC بمسحه
                 this.DataContext = null;
                 _viewModel = null;
             }
             catch
             {
-                // منع انهيار البرنامج في حالة حدوث خطأ أثناء الإغلاق
             }
         }
 

@@ -7,7 +7,6 @@
         public string Address { get; set; }
         public DateTime CreatedDate { get; set; }
 
-        // ✅ خاصية جديدة للدلالة على تفعيل/تعطيل العميل
         public bool IsActive { get; set; } = true;
 
         public Customer()

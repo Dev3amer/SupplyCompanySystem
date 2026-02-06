@@ -23,6 +23,7 @@ namespace SupplyCompanySystem.Domain.Entities
         private string _notes;
         private decimal _profitMarginPercentage;
         private decimal _invoiceDiscountPercentage;
+        private DateTime? _completedDate; // ⭐ إضافة خاصية تاريخ الإكمال
 
         public int CustomerId
         {
@@ -84,6 +85,30 @@ namespace SupplyCompanySystem.Domain.Entities
                 if (_status != value)
                 {
                     _status = value;
+                    OnPropertyChanged();
+
+                    // ⭐ تحديث تاريخ الإكمال تلقائياً
+                    if (value == InvoiceStatus.Completed && _completedDate == null)
+                    {
+                        CompletedDate = DateTime.Now;
+                    }
+                    else if (value == InvoiceStatus.Draft)
+                    {
+                        CompletedDate = null;
+                    }
+                }
+            }
+        }
+
+        // ⭐ خاصية جديدة: تاريخ الإكمال الأصلي
+        public DateTime? CompletedDate
+        {
+            get => _completedDate;
+            set
+            {
+                if (_completedDate != value)
+                {
+                    _completedDate = value;
                     OnPropertyChanged();
                 }
             }
@@ -178,6 +203,7 @@ namespace SupplyCompanySystem.Domain.Entities
             Items = new List<InvoiceItem>();
             ProfitMarginPercentage = 0;
             InvoiceDiscountPercentage = 0;
+            CompletedDate = null; // ⭐ تهيئة القيمة
         }
 
         public Invoice(DateTime invoiceDate)
@@ -188,6 +214,7 @@ namespace SupplyCompanySystem.Domain.Entities
             Items = new List<InvoiceItem>();
             ProfitMarginPercentage = 0;
             InvoiceDiscountPercentage = 0;
+            CompletedDate = null; // ⭐ تهيئة القيمة
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

@@ -11,6 +11,9 @@
         <local:NotNullToBoolConverter x:Key="NotNullConverter"/>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
+        <!-- ⭐ محول جديد للتحقق من حالة الفاتورة -->
+        <local:InvoiceStatusToBoolConverter x:Key="InvoiceStatusToBoolConverter"/>
+
         <!-- ✅ ستايل موحد للأزرار الأساسية -->
         <Style x:Key="PrimaryButtonStyle" TargetType="Button">
             <Setter Property="Foreground" Value="White"/>
@@ -105,7 +108,17 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="رقم مسلسل" Binding="{Binding Id}" Width="100" IsReadOnly="True"/>
                 <DataGridTextColumn Header="اسم العميل" Binding="{Binding Customer.Name}" Width="150" IsReadOnly="True"/>
-                <DataGridTextColumn Header="التاريخ" Binding="{Binding InvoiceDate, StringFormat='yyyy/MM/dd'}" Width="120" IsReadOnly="True"/>
+                <DataGridTextColumn Header="التاريخ للعميل" Binding="{Binding InvoiceDate, StringFormat='yyyy/MM/dd'}" Width="120" IsReadOnly="True"/>
+                <DataGridTextColumn Header="تاريخ الإكمال" Width="140" IsReadOnly="True">
+                    <!-- ⭐ عمود جديد -->
+                    <DataGridTextColumn.Binding>
+                        <Binding Path="CompletedDate" StringFormat="yyyy/MM/dd HH:mm">
+                            <Binding.TargetNullValue>
+                                <sys:String>--</sys:String>
+                            </Binding.TargetNullValue>
+                        </Binding>
+                    </DataGridTextColumn.Binding>
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="الإجمالي قبل الخصم" Binding="{Binding TotalAmount, StringFormat='0.00'}" Width="150" IsReadOnly="True"/>
                 <DataGridTextColumn Header="قيمة الخصم" Binding="{Binding InvoiceDiscountAmount, StringFormat='0.00'}" Width="100" IsReadOnly="True"/>
                 <DataGridTextColumn Header="الإجمالي النهائي" Binding="{Binding FinalAmount, StringFormat='0.00'}" Width="150" IsReadOnly="True"/>
@@ -129,27 +142,56 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- ✅ حذف زر إلغاء التحديد (العمود الأول أصبح فارغاً) -->
-
                 <!-- ✅ الأزرار الأساسية -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
 
+                    <!-- ⭐ زر إعادة إلى المسودة -->
+                    <Button Content="↩️ إعادة إلى المسودة" 
+                    Command="{Binding ReturnToDraftCommand}" 
+                    Margin="0,0,10,0">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Setter Property="Background" Value="#BDC3C7"/>
+                                <Setter Property="Cursor" Value="No"/>
+                                <Setter Property="Opacity" Value="0.6"/>
+                                <Setter Property="ToolTip" Value="حدد عرض أسعار مكتمل أولاً"/>
+                                <Setter Property="IsEnabled" Value="False"/>
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding SelectedInvoice, Converter={StaticResource NotNullConverter}}" Value="True"/>
+                                            <Condition Binding="{Binding SelectedInvoice.Status}" Value="Completed"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <MultiDataTrigger.Setters>
+                                            <Setter Property="Background" Value="#F39C12"/>
+                                            <Setter Property="Cursor" Value="Hand"/>
+                                            <Setter Property="Opacity" Value="1"/>
+                                            <Setter Property="IsEnabled" Value="True"/>
+                                            <Setter Property="ToolTip" Value="إعادة عرض الأسعار المحدد إلى حالة المسودة للتعديل"/>
+                                        </MultiDataTrigger.Setters>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
                     <!-- ✅ زر تصدير PDF للفاتورة المحددة -->
                     <Button Content="📄 تصدير عرض الأسعار المحدد PDF" 
-                            Command="{Binding ExportPdfCommand}" 
-                            IsEnabled="{Binding SelectedInvoice, Converter={StaticResource NotNullConverter}}"
-                            Margin="0,0,10,0">
+                    Command="{Binding ExportPdfCommand}" 
+                    Margin="0,0,10,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
                                 <Setter Property="Background" Value="#95A5A6"/>
                                 <Setter Property="Cursor" Value="No"/>
                                 <Setter Property="Opacity" Value="0.6"/>
+                                <Setter Property="IsEnabled" Value="False"/>
                                 <Setter Property="ToolTip" Value="حدد عرض أسعار أولاً"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding SelectedInvoice, Converter={StaticResource NotNullConverter}}" Value="True">
                                         <Setter Property="Background" Value="#3498DB"/>
                                         <Setter Property="Cursor" Value="Hand"/>
                                         <Setter Property="Opacity" Value="1"/>
+                                        <Setter Property="IsEnabled" Value="True"/>
                                         <Setter Property="ToolTip" Value="تصدير عرض الأسعار المحدد"/>
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -159,25 +201,21 @@
 
                     <!-- ✅ زر تصدير PDF بدون أسعار -->
                     <Button Content="📄 تصدير بدون أسعار PDF" 
-                            Command="{Binding ExportPdfWithoutPricesCommand}" 
-                            ToolTip="تصدير عرض الاسعار بدون أسعار"
-                            IsEnabled="{Binding SelectedInvoice, Converter={StaticResource NotNullConverter}}"
-                            Margin="0,0,10,0">
+                    Command="{Binding ExportPdfWithoutPricesCommand}" 
+                    Margin="0,0,10,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
-                                <Setter Property="Background" Value="#F39C12"/>
-                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Background" Value="#BDC3C7"/>
+                                <Setter Property="Cursor" Value="No"/>
+                                <Setter Property="Opacity" Value="0.6"/>
+                                <Setter Property="IsEnabled" Value="False"/>
+                                <Setter Property="ToolTip" Value="حدد عرض أسعار أولاً"/>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedInvoice}" Value="{x:Null}">
-                                        <Setter Property="Background" Value="#BDC3C7"/>
-                                        <Setter Property="Cursor" Value="No"/>
-                                        <Setter Property="Opacity" Value="0.6"/>
-                                        <Setter Property="ToolTip" Value="حدد عرض أسعار أولاً"/>
-                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding SelectedInvoice, Converter={StaticResource NotNullConverter}}" Value="True">
                                         <Setter Property="Background" Value="#F39C12"/>
                                         <Setter Property="Cursor" Value="Hand"/>
                                         <Setter Property="Opacity" Value="1"/>
+                                        <Setter Property="IsEnabled" Value="True"/>
                                         <Setter Property="ToolTip" Value="تصدير عرض الأسعار بدون أسعار"/>
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -186,50 +224,48 @@
                     </Button>
 
                     <!-- ✅ زر تصدير Excel للفواتير المفلترة -->
-                    <Button Content="📥 تصدير كل عروض الاسعار Excel" 
-                            Command="{Binding ExportExcelCommand}" 
-                            IsEnabled="{Binding CompletedInvoices.Count}"
-                            Margin="0,0,10,0">
+                    <Button Content="📥 تصدير كل عروض الأسعار Excel" 
+                    Command="{Binding ExportExcelCommand}" 
+                    Margin="0,0,10,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Setter Property="Background" Value="#27AE60"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Opacity" Value="1"/>
+                                <Setter Property="IsEnabled" Value="True"/>
+                                <Setter Property="ToolTip" Value="تصدير جميع الفواتير المفلترة إلى Excel"/>
                                 <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
+                                    <DataTrigger Binding="{Binding CompletedInvoices.Count}" Value="0">
                                         <Setter Property="Background" Value="#95A5A6"/>
                                         <Setter Property="Cursor" Value="No"/>
                                         <Setter Property="Opacity" Value="0.6"/>
+                                        <Setter Property="IsEnabled" Value="False"/>
                                         <Setter Property="ToolTip" Value="لا توجد فواتير للتصدير"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="True">
-                                        <Setter Property="Background" Value="#27AE60"/>
-                                        <Setter Property="Cursor" Value="Hand"/>
-                                        <Setter Property="Opacity" Value="1"/>
-                                        <Setter Property="ToolTip" Value="تصدير جميع الفواتير المفلترة إلى Excel"/>
-                                    </Trigger>
+                                    </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
                     </Button>
 
-                    <!-- زر طباعة PDF للفواتير المفلترة -->
-                    <Button Content="🖨️ تصدير كل عروض الاسعار PDF" 
-                            Command="{Binding PrintPdfCommand}" 
-                            IsEnabled="{Binding CompletedInvoices.Count}"
-                            Margin="0,0,5,0">
+                    <!-- ✅ زر طباعة PDF للفواتير المفلترة -->
+                    <Button Content="🖨️ تصدير كل عروض الأسعار PDF" 
+                    Command="{Binding PrintPdfCommand}" 
+                    Margin="0,0,5,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Setter Property="Background" Value="#9B59B6"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Opacity" Value="1"/>
+                                <Setter Property="IsEnabled" Value="True"/>
+                                <Setter Property="ToolTip" Value="طباعة جميع الفواتير المفلترة كملف PDF واحد"/>
                                 <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
+                                    <DataTrigger Binding="{Binding CompletedInvoices.Count}" Value="0">
                                         <Setter Property="Background" Value="#95A5A6"/>
                                         <Setter Property="Cursor" Value="No"/>
                                         <Setter Property="Opacity" Value="0.6"/>
+                                        <Setter Property="IsEnabled" Value="False"/>
                                         <Setter Property="ToolTip" Value="لا توجد فواتير للطباعة"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="True">
-                                        <Setter Property="Background" Value="#9B59B6"/>
-                                        <Setter Property="Cursor" Value="Hand"/>
-                                        <Setter Property="Opacity" Value="1"/>
-                                        <Setter Property="ToolTip" Value="طباعة جميع الفواتير المفلترة كملف PDF واحد"/>
-                                    </Trigger>
+                                    </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>

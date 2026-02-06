@@ -22,10 +22,6 @@ namespace SupplyCompanySystem.UI.Commands
         {
             _execute(parameter);
         }
-
-        /// <summary>
-        /// إخطار بأن حالة الـ Command تغيّرت
-        /// </summary>
         public void NotifyCanExecuteChanged()
         {
             CommandManager.InvalidateRequerySuggested();

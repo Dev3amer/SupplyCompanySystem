@@ -68,7 +68,6 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .Property(p => p.Description)
                 .HasMaxLength(500);
 
-            // ✅ إضافة IsActive للمنتجات
             modelBuilder.Entity<Product>()
                 .Property(p => p.IsActive)
                 .HasDefaultValue(true);
@@ -100,13 +99,15 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .Property(i => i.InvoiceDate)
                 .IsRequired();
 
-            // ✅ جديد: تاريخ إنشاء السجل
             modelBuilder.Entity<Invoice>()
                 .Property(i => i.CreatedDate)
                 .IsRequired()
                 .HasDefaultValueSql("GETDATE()");
 
-            // ✅ جديد: نسبة الخصم على الفاتورة كاملة
+            modelBuilder.Entity<Invoice>()
+                .Property(i => i.CompletedDate) // ⭐ إضافة تكوين الحقل الجديد
+                .IsRequired(false);
+
             modelBuilder.Entity<Invoice>()
                 .Property(i => i.InvoiceDiscountPercentage)
                 .HasPrecision(5, 2)
@@ -141,18 +142,15 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .Property(ii => ii.UnitPrice)
                 .HasPrecision(10, 2);
 
-            // ✅ جديد: السعر الأصلي
             modelBuilder.Entity<InvoiceItem>()
                 .Property(ii => ii.OriginalUnitPrice)
                 .HasPrecision(10, 2);
 
-            // ✅ جديد: نسبة الخصم لكل بند
             modelBuilder.Entity<InvoiceItem>()
                 .Property(ii => ii.DiscountPercentage)
                 .HasPrecision(5, 2)
                 .HasDefaultValue(0);
 
-            // ✅ جديد: نسبة المكسب على المنتج الفردي
             modelBuilder.Entity<InvoiceItem>()
                 .Property(ii => ii.ItemProfitMarginPercentage)
                 .HasPrecision(5, 2)

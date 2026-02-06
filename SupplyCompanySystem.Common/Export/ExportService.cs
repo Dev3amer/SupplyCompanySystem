@@ -16,14 +16,12 @@ namespace SupplyCompanySystem.Common.Export
                 {
                     var worksheet = workbook.Worksheets.Add("العملاء");
 
-                    // رؤوس الأعمدة
                     worksheet.Cell(1, 1).Value = "رقم العميل";
                     worksheet.Cell(1, 2).Value = "اسم العميل";
                     worksheet.Cell(1, 3).Value = "رقم التليفون";
                     worksheet.Cell(1, 4).Value = "العنوان";
                     worksheet.Cell(1, 5).Value = "تاريخ الإنشاء";
 
-                    // تنسيق رؤوس الأعمدة
                     var headerRow = worksheet.Row(1);
                     headerRow.Style.Font.Bold = true;
                     headerRow.Style.Font.FontColor = XLColor.White;
@@ -31,7 +29,6 @@ namespace SupplyCompanySystem.Common.Export
                     headerRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                     headerRow.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
-                    // إضافة البيانات
                     int row = 2;
                     foreach (var customer in customers)
                     {
@@ -98,7 +95,6 @@ namespace SupplyCompanySystem.Common.Export
 
                         page.Content().Column(column =>
                         {
-                            // العنوان
                             column.Item().Text("قائمة العملاء")
                                 .FontSize(18)
                                 .Bold()
@@ -106,7 +102,6 @@ namespace SupplyCompanySystem.Common.Export
 
                             column.Item().PaddingTop(20);
 
-                            // الجدول
                             column.Item().Table(table =>
                             {
                                 table.ColumnsDefinition(columns =>
@@ -117,7 +112,6 @@ namespace SupplyCompanySystem.Common.Export
                                     columns.RelativeColumn(1);
                                 });
 
-                                // رؤوس الأعمدة
                                 table.Header(header =>
                                 {
                                     var headerStyle = new QuestPDF.Infrastructure.TextStyle();
@@ -132,7 +126,6 @@ namespace SupplyCompanySystem.Common.Export
                                         .Text("رقم العميل").FontColor("#FFFFFF").Bold();
                                 });
 
-                                // البيانات
                                 foreach (var customer in customers)
                                 {
                                     table.Cell().Border(1).Padding(5).Text(customer.Address);

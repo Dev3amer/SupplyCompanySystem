@@ -9,19 +9,16 @@ namespace SupplyCompanySystem.UI.Services
         {
             try
             {
-                // فصل العدد إلى جزء صحيح وجزء عشري
                 long integerPart = (long)Math.Floor(number);
                 decimal fractionalPart = number - integerPart;
-                int fractionalValue = (int)Math.Round(fractionalPart * 100); // تحويل إلى قروش (جزء من 100)
+                int fractionalValue = (int)Math.Round(fractionalPart * 100);
 
                 var culture = new CultureInfo("ar");
 
-                // تحويل الجزء الصحيح
                 string integerWords = integerPart.ToWords(culture);
 
                 string result = "";
 
-                // إضافة الجزء الصحيح مع "جنيهاً"
                 if (integerPart > 0)
                 {
                     result = integerWords + " جنيهاً";
@@ -31,12 +28,10 @@ namespace SupplyCompanySystem.UI.Services
                     result = "صفر جنيهاً";
                 }
 
-                // إضافة الجزء العشري (القرش) إن وجد
                 if (fractionalValue > 0)
                 {
                     string fractionalWords = fractionalValue.ToWords(culture);
 
-                    // تنسيق الكسور بشكل صحيح
                     if (fractionalValue == 1)
                         result += " وقرش واحد";
                     else if (fractionalValue == 2)
@@ -47,30 +42,25 @@ namespace SupplyCompanySystem.UI.Services
                         result += " و" + fractionalWords + " قرشاً";
                 }
 
-                // إضافة "فقط" في النهاية
                 result += " فقط";
 
-                // تحسين النص العربي
                 result = ImproveArabicText(result);
 
                 return result;
             }
             catch (Exception ex)
             {
-                // في حالة حدوث خطأ، نستخدم الدالة البديلة
                 return ConvertToArabicWordsFallback(number);
             }
         }
 
         private static string ImproveArabicText(string text)
         {
-            // تحسينات للغة العربية
             text = text.Replace("  ", " ");
             text = text.Replace("و صفر", "وصفر");
             text = text.Replace("و واحد", "وواحد");
             text = text.Replace("و اثنان", "واثنان");
 
-            // إصلاح مشكلة "عشرون" و "ثلاثون" إلخ
             text = text.Replace("عشرون جنيهاً", "عشرون جنيهاً");
             text = text.Replace("ثلاثون جنيهاً", "ثلاثون جنيهاً");
             text = text.Replace("أربعون جنيهاً", "أربعون جنيهاً");
@@ -82,28 +72,22 @@ namespace SupplyCompanySystem.UI.Services
 
             return text.Trim();
         }
-
-        // دالة بديلة محسنة
         private static string ConvertToArabicWordsFallback(decimal number)
         {
             try
             {
-                // محاولة باستخدام المكتبة بطريقة مختلفة
                 return ConvertUsingHumanizerFixed(number);
             }
             catch
             {
-                // استخدام دالة يدوية محسنة
                 return ConvertToArabicWordsManual(number);
             }
         }
 
         private static string ConvertUsingHumanizerFixed(decimal number)
         {
-            // تحويل decimal إلى double أولاً (Humanizer يدعم double)
             double numberAsDouble = (double)number;
 
-            // فصل العدد إلى جزء صحيح وجزء عشري
             long integerPart = (long)Math.Floor(numberAsDouble);
             double fractionalPart = numberAsDouble - integerPart;
             int fractionalValue = (int)Math.Round(fractionalPart * 100);
@@ -178,7 +162,6 @@ namespace SupplyCompanySystem.UI.Services
                     if (n > 0) result += " و";
                 }
 
-                // العشرات والوحدات
                 if (n > 0)
                 {
                     if (n < 10)
@@ -206,7 +189,6 @@ namespace SupplyCompanySystem.UI.Services
 
             string integerWords = "";
 
-            // مليارات
             if (integerPart >= 1000000000)
             {
                 long billions = integerPart / 1000000000;
@@ -221,7 +203,6 @@ namespace SupplyCompanySystem.UI.Services
                 if (integerPart > 0) integerWords += " و";
             }
 
-            // ملايين
             if (integerPart >= 1000000)
             {
                 long millions = integerPart / 1000000;
@@ -236,7 +217,6 @@ namespace SupplyCompanySystem.UI.Services
                 if (integerPart > 0) integerWords += " و";
             }
 
-            // آلاف
             if (integerPart >= 1000)
             {
                 long thousands = integerPart / 1000;
@@ -251,7 +231,6 @@ namespace SupplyCompanySystem.UI.Services
                 if (integerPart > 0) integerWords += " و";
             }
 
-            // الباقي
             if (integerPart > 0 || string.IsNullOrEmpty(integerWords))
             {
                 integerWords += ConvertUnder1000(integerPart);
@@ -262,7 +241,6 @@ namespace SupplyCompanySystem.UI.Services
 
             string result = integerWords.Trim() + " جنيهاً";
 
-            // إضافة القروش
             if (fractionalValue > 0)
             {
                 string fractionalWords = ConvertUnder1000(fractionalValue);
@@ -277,7 +255,6 @@ namespace SupplyCompanySystem.UI.Services
                     result += " و" + fractionalWords + " قرشاً";
             }
 
-            // الإشارة السالبة
             if (number < 0)
                 result = "سالب " + result;
 

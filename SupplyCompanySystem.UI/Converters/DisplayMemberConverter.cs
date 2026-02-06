@@ -10,7 +10,6 @@ namespace SupplyCompanySystem.UI.Converters
             if (value == null)
                 return string.Empty;
 
-            // إذا كان هناك DisplayMemberPath
             if (parameter is string displayPath && !string.IsNullOrEmpty(displayPath))
             {
                 try
@@ -23,11 +22,9 @@ namespace SupplyCompanySystem.UI.Converters
                 }
                 catch
                 {
-                    // في حالة الخطأ، نعود للـ ToString العادي
                 }
             }
 
-            // محاولة استخدام خاصية Name إذا كان موجوداً
             var nameProperty = value.GetType().GetProperty("Name");
             if (nameProperty != null)
             {

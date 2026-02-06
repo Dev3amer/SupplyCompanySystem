@@ -32,6 +32,9 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _completedInvoices = value;
                 OnPropertyChanged(nameof(CompletedInvoices));
+                // ⭐ تحديث CanExecute للأزرار عند تغيير القائمة
+                ExportExcelCommand?.NotifyCanExecuteChanged();
+                PrintPdfCommand?.NotifyCanExecuteChanged();
             }
         }
 
@@ -52,8 +55,10 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _selectedInvoice = value;
                 OnPropertyChanged(nameof(SelectedInvoice));
-                (ExportPdfCommand as RelayCommand)?.NotifyCanExecuteChanged();
-                (ExportPdfWithoutPricesCommand as RelayCommand)?.NotifyCanExecuteChanged();
+                // ⭐ تحديث CanExecute للأزرار عند تغيير التحديد
+                ExportPdfCommand?.NotifyCanExecuteChanged();
+                ExportPdfWithoutPricesCommand?.NotifyCanExecuteChanged();
+                ReturnToDraftCommand?.NotifyCanExecuteChanged();
             }
         }
 
@@ -103,6 +108,7 @@ namespace SupplyCompanySystem.UI.ViewModels
         public RelayCommand ExportPdfWithoutPricesCommand { get; }
         public RelayCommand SearchCommand { get; }
         public RelayCommand ResetFilterCommand { get; }
+        public RelayCommand ReturnToDraftCommand { get; }
 
         public InvoiceArchiveViewModel(IInvoiceRepository invoiceRepository, ICustomerRepository customerRepository)
         {
@@ -115,16 +121,23 @@ namespace SupplyCompanySystem.UI.ViewModels
             _fromDate = new DateTime(DateTime.Now.Year, 1, 1);
             _toDate = DateTime.Now;
 
+            // ⭐ تعديل CanExecute للأزرار
             ExportExcelCommand = new RelayCommand(_ => ExportFilteredInvoicesToExcel(),
-                _ => CompletedInvoices.Count > 0);
+                _ => CompletedInvoices != null && CompletedInvoices.Count > 0);
+
             PrintPdfCommand = new RelayCommand(_ => PrintAllFilteredInvoices(),
-                _ => CompletedInvoices.Count > 0);
+                _ => CompletedInvoices != null && CompletedInvoices.Count > 0);
+
             ExportPdfCommand = new RelayCommand(_ => ExportSelectedInvoicePdf(),
-                _ => SelectedInvoice != null);
+                _ => SelectedInvoice != null && SelectedInvoice.Status == InvoiceStatus.Completed);
+
             ExportPdfWithoutPricesCommand = new RelayCommand(_ => ExportSelectedInvoicePdfWithoutPrices(),
-                _ => SelectedInvoice != null);
+                _ => SelectedInvoice != null && SelectedInvoice.Status == InvoiceStatus.Completed);
+
             SearchCommand = new RelayCommand(_ => Search());
             ResetFilterCommand = new RelayCommand(_ => ResetFilter());
+            ReturnToDraftCommand = new RelayCommand(_ => ReturnToDraft(),
+                _ => SelectedInvoice != null && SelectedInvoice.Status == InvoiceStatus.Completed);
 
             LoadData();
         }
@@ -133,12 +146,7 @@ namespace SupplyCompanySystem.UI.ViewModels
         {
             try
             {
-                var allInvoices = _invoiceRepository.GetAll();
-                var completedInvoices = allInvoices
-                    .Where(i => i.Status == InvoiceStatus.Completed)
-                    .OrderByDescending(i => i.InvoiceDate)
-                    .ToList();
-
+                var completedInvoices = _invoiceRepository.GetCompletedInvoices();
                 CompletedInvoices = new ObservableCollection<Invoice>(completedInvoices);
 
                 var customers = _customerRepository.GetAll();
@@ -150,6 +158,10 @@ namespace SupplyCompanySystem.UI.ViewModels
                 }
 
                 SelectedCustomer = Customers.FirstOrDefault();
+
+                // ⭐ تحديث حالة الأزرار بعد تحميل البيانات
+                ExportExcelCommand?.NotifyCanExecuteChanged();
+                PrintPdfCommand?.NotifyCanExecuteChanged();
             }
             catch (Exception ex)
             {
@@ -161,11 +173,9 @@ namespace SupplyCompanySystem.UI.ViewModels
         {
             try
             {
-                var allInvoices = _invoiceRepository.GetAll()
-                    .Where(i => i.Status == InvoiceStatus.Completed)
-                    .ToList();
+                var completedInvoices = _invoiceRepository.GetCompletedInvoices();
 
-                var filtered = allInvoices.Where(i =>
+                var filtered = completedInvoices.Where(i =>
                     i.InvoiceDate.Date >= FromDate.Date &&
                     i.InvoiceDate.Date <= ToDate.Date
                 ).ToList();
@@ -181,7 +191,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                 }
 
                 CompletedInvoices = new ObservableCollection<Invoice>(
-                    filtered.OrderByDescending(i => i.InvoiceDate)
+                    filtered.OrderByDescending(i => i.CompletedDate ?? i.InvoiceDate)
                 );
 
                 // ✅ إلغاء التحديد بعد البحث
@@ -203,8 +213,52 @@ namespace SupplyCompanySystem.UI.ViewModels
             SelectedCustomer = Customers.FirstOrDefault();
             MinAmount = string.Empty;
             LoadData();
-            // ✅ إلغاء التحديد بعد إعادة التعيين
             SelectedInvoice = null;
+        }
+
+        // ⭐ دالة جديدة: إعادة الفاتورة المكتملة إلى المسودة
+        private void ReturnToDraft()
+        {
+            if (SelectedInvoice == null) return;
+
+            var result = MessageBox.Show(
+                $"هل تريد إعادة عرض الأسعار رقم {SelectedInvoice.Id} إلى حالة المسودة؟\n\n" +
+                "ملاحظة: سيتم إزالة الفاتورة من قائمة العروض المكتملة وإضافتها لقائمة المسودة.",
+                "إعادة إلى المسودة",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    bool success = _invoiceRepository.ReturnToDraft(SelectedInvoice.Id);
+
+                    if (success)
+                    {
+                        MessageBox.Show(
+                            $"تم إعادة عرض الأسعار رقم {SelectedInvoice.Id} إلى المسودة بنجاح.\n" +
+                            "يمكنك الآن تعديله من صفحة عروض الأسعار الجديدة.",
+                            "تمت العملية",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+
+                        // إزالة الفاتورة من القائمة الحالية
+                        CompletedInvoices.Remove(SelectedInvoice);
+                        SelectedInvoice = null;
+                    }
+                    else
+                    {
+                        MessageBox.Show("تعذر إعادة الفاتورة إلى المسودة. يرجى المحاولة مرة أخرى.",
+                            "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"خطأ في إعادة الفاتورة إلى المسودة: {ex.Message}",
+                        "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
         }
 
         private void ExportFilteredInvoicesToExcel()
@@ -241,19 +295,20 @@ namespace SupplyCompanySystem.UI.ViewModels
                         titleCell.Style.Fill.BackgroundColor = XLColor.FromArgb(44, 62, 80);
                         titleCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                         titleCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-                        worksheet.Range(1, 1, 1, 9).Merge();
+                        worksheet.Range(1, 1, 1, 10).Merge();
 
                         worksheet.Cell(2, 1).Value = $"الفترة من: {FromDate:yyyy/MM/dd} إلى: {ToDate:yyyy/MM/dd}";
                         worksheet.Cell(3, 1).Value = $"عدد عروض الأسعار: {CompletedInvoices.Count}";
                         worksheet.Cell(3, 1).Style.Font.Bold = true;
 
-                        worksheet.Cell(2, 7).Value = $"تاريخ التصدير: {DateTime.Now:yyyy/MM/dd HH:mm}";
+                        worksheet.Cell(2, 8).Value = $"تاريخ التصدير: {DateTime.Now:yyyy/MM/dd HH:mm}";
 
                         var headers = new string[]
                         {
                             "رقم مسلسل",
                             "اسم العميل",
                             "التاريخ",
+                            "تاريخ الإكمال",
                             "الإجمالي قبل الخصم",
                             "قيمة الخصم",
                             "الإجمالي النهائي",
@@ -288,14 +343,15 @@ namespace SupplyCompanySystem.UI.ViewModels
                             worksheet.Cell(dataRow, 1).Value = invoice.Id;
                             worksheet.Cell(dataRow, 2).Value = invoice.Customer?.Name ?? "";
                             worksheet.Cell(dataRow, 3).Value = invoice.InvoiceDate.ToString("yyyy/MM/dd");
-                            worksheet.Cell(dataRow, 4).Value = invoice.TotalAmount;
-                            worksheet.Cell(dataRow, 5).Value = discountAmount;
-                            worksheet.Cell(dataRow, 6).Value = invoice.FinalAmount;
-                            worksheet.Cell(dataRow, 7).Value = itemCount;
-                            worksheet.Cell(dataRow, 8).Value = totalQuantity;
-                            worksheet.Cell(dataRow, 9).Value = GetInvoiceStatusArabic(invoice.Status);
+                            worksheet.Cell(dataRow, 4).Value = invoice.CompletedDate?.ToString("yyyy/MM/dd HH:mm") ?? "";
+                            worksheet.Cell(dataRow, 5).Value = invoice.TotalAmount;
+                            worksheet.Cell(dataRow, 6).Value = discountAmount;
+                            worksheet.Cell(dataRow, 7).Value = invoice.FinalAmount;
+                            worksheet.Cell(dataRow, 8).Value = itemCount;
+                            worksheet.Cell(dataRow, 9).Value = totalQuantity;
+                            worksheet.Cell(dataRow, 10).Value = GetInvoiceStatusArabic(invoice.Status);
 
-                            for (int i = 4; i <= 6; i++)
+                            for (int i = 5; i <= 7; i++)
                             {
                                 var cell = worksheet.Cell(dataRow, i);
                                 cell.Style.NumberFormat.Format = "#,##0.00";
@@ -303,7 +359,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                                 cell.Style.Font.FontColor = XLColor.FromArgb(39, 174, 96);
                             }
 
-                            for (int i = 1; i <= 9; i++)
+                            for (int i = 1; i <= 10; i++)
                             {
                                 var cell = worksheet.Cell(dataRow, i);
                                 cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
@@ -314,24 +370,25 @@ namespace SupplyCompanySystem.UI.ViewModels
                         }
 
                         worksheet.Columns("A:C").Width = 15;
-                        worksheet.Columns("D:F").Width = 20;
-                        worksheet.Columns("G:H").Width = 15;
-                        worksheet.Column("I").Width = 12;
+                        worksheet.Columns("D").Width = 18;
+                        worksheet.Columns("E:G").Width = 20;
+                        worksheet.Columns("H:I").Width = 15;
+                        worksheet.Column("J").Width = 12;
 
-                        worksheet.Columns("A,A,C,G,H").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                        worksheet.Columns("A,A,C,D,H,I").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                         worksheet.Columns("B").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-                        worksheet.Columns("D,E,F").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                        worksheet.Columns("E,F,G").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
                         int totalRow = dataRow + 1;
                         worksheet.Cell(totalRow, 3).Value = "الإجماليات:";
                         worksheet.Cell(totalRow, 3).Style.Font.Bold = true;
                         worksheet.Cell(totalRow, 3).Style.Font.FontSize = 12;
 
-                        worksheet.Cell(totalRow, 4).Value = CompletedInvoices.Sum(i => i.TotalAmount);
-                        worksheet.Cell(totalRow, 5).Value = CompletedInvoices.Sum(i => i.InvoiceDiscountAmount);
-                        worksheet.Cell(totalRow, 6).Value = CompletedInvoices.Sum(i => i.FinalAmount);
+                        worksheet.Cell(totalRow, 5).Value = CompletedInvoices.Sum(i => i.TotalAmount);
+                        worksheet.Cell(totalRow, 6).Value = CompletedInvoices.Sum(i => i.InvoiceDiscountAmount);
+                        worksheet.Cell(totalRow, 7).Value = CompletedInvoices.Sum(i => i.FinalAmount);
 
-                        for (int i = 4; i <= 6; i++)
+                        for (int i = 5; i <= 7; i++)
                         {
                             var cell = worksheet.Cell(totalRow, i);
                             cell.Style.Font.Bold = true;

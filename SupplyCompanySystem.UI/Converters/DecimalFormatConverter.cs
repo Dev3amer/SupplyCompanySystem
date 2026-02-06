@@ -12,15 +12,12 @@ namespace SupplyCompanySystem.UI.Converters
 
             if (value is decimal decimalValue)
             {
-                // إذا كان الرقم صحيحاً (لا يوجد كسور)
                 if (decimalValue == Math.Floor(decimalValue))
                 {
-                    // إرجاع الرقم بدون كسور
                     return decimalValue.ToString("0", culture);
                 }
                 else
                 {
-                    // إرجاع الرقم مع منزلتين عشريتين
                     return decimalValue.ToString("0.00", culture);
                 }
             }
@@ -35,18 +32,13 @@ namespace SupplyCompanySystem.UI.Converters
 
             string stringValue = value.ToString().Trim();
 
-            // ✅ السماح بالنقطة والفاصلة كفاصل عشري
-            // استبدال الفاصلة بنقطة للتحويل
             stringValue = stringValue.Replace(',', '.');
 
-            // ✅ السماح بإدخال النقطة العشرية وحدها (مثل "10.")
-            // إذا انتهى النص بنقطة، أضف صفر
             if (stringValue.EndsWith("."))
             {
                 stringValue += "0";
             }
 
-            // محاولة التحويل إلى decimal
             if (decimal.TryParse(stringValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal result))
             {
                 return result;

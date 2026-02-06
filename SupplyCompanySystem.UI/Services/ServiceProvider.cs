@@ -19,20 +19,16 @@ namespace SupplyCompanySystem.UI.Services
         {
             _services = new ServiceCollection();
 
-            // ✅ DbContext
             _services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(
                     configuration.GetConnectionString("DefaultConnection")));
 
-            // ✅ Repositories
             _services.AddScoped<ICustomerRepository, CustomerRepository>();
             _services.AddScoped<IProductRepository, ProductRepository>();
             _services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 
-            // ✅ Services
             _services.AddSingleton<NavigationService>();
 
-            // ✅ ViewModels
             _services.AddTransient<CustomerViewModel>();
             _services.AddTransient<ProductViewModel>();
             _services.AddTransient<InvoiceViewModel>();
@@ -48,7 +44,6 @@ namespace SupplyCompanySystem.UI.Services
             return Provider.GetRequiredService<T>();
         }
 
-        // ✅ دالة مساعدة للحصول على ViewModel مع حقن التبعيات
         public TViewModel CreateViewModel<TViewModel>() where TViewModel : class
         {
             return Provider.GetRequiredService<TViewModel>();

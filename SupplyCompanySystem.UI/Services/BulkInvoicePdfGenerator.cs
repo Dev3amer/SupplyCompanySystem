@@ -13,7 +13,6 @@ namespace SupplyCompanySystem.UI.Services
         {
             QuestPDF.Settings.License = LicenseType.Community;
 
-            // تسجيل الخطوط إذا لزم الأمر
             RegisterFonts();
 
             Document.Create(container =>
@@ -31,7 +30,6 @@ namespace SupplyCompanySystem.UI.Services
                         )
                         .Column(column =>
                         {
-                            // صفحة العنوان والتقرير
                             column.Item().Row(row =>
                             {
                                 row.RelativeColumn(2).Column(col =>
@@ -68,7 +66,6 @@ namespace SupplyCompanySystem.UI.Services
                             column.Item().PaddingVertical(15);
                             column.Item().LineHorizontal(1);
 
-                            // جدول ملخص الفواتير
                             column.Item().PaddingTop(15).Text("ملخص عروض الأسعار")
                                 .FontSize(16)
                                 .Bold()
@@ -130,7 +127,6 @@ namespace SupplyCompanySystem.UI.Services
                                 }
                             });
 
-                            // إجماليات التقرير
                             column.Item().PaddingTop(20).Row(row =>
                             {
                                 row.RelativeColumn(1).Column(col =>
@@ -160,7 +156,6 @@ namespace SupplyCompanySystem.UI.Services
 
                             column.Item().PageBreak();
 
-                            // عرض كل فاتورة بشكل منفصل
                             foreach (var invoice in invoices)
                             {
                                 AddInvoiceToPdf(column, invoice);
@@ -209,7 +204,6 @@ namespace SupplyCompanySystem.UI.Services
             column.Item().PaddingVertical(10);
             column.Item().LineHorizontal(1);
 
-            // جدول أصناف الفاتورة
             column.Item().PaddingTop(10).Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -258,7 +252,6 @@ namespace SupplyCompanySystem.UI.Services
                             cell.AlignCenter();
                     }
 
-                    // حساب السعر النهائي للعميل
                     decimal finalUnitPrice = CalculateFinalUnitPriceForPdf(item, invoice);
                     decimal finalLineTotal = CalculateFinalLineTotalForPdf(item, invoice);
 
@@ -273,7 +266,6 @@ namespace SupplyCompanySystem.UI.Services
                 }
             });
 
-            // ملخص الفاتورة
             column.Item().PaddingTop(10).Row(row =>
             {
                 row.RelativeColumn(1).Column(col =>
@@ -312,7 +304,6 @@ namespace SupplyCompanySystem.UI.Services
                 });
             });
 
-            // فاصل بين الفواتير
             column.Item().PaddingTop(15);
             column.Item().LineHorizontal(0.5f);
             column.Item().PaddingTop(5).Text($"--- نهاية عرض أسعار رقم {invoice.Id} ---")

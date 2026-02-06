@@ -39,6 +39,34 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 .FirstOrDefault(i => i.Id == id);
         }
 
+        // ⭐ دالة جديدة: الحصول على فواتير مكتملة مع إمكانية التعديل
+        public List<Invoice> GetCompletedInvoices()
+        {
+            return _context.Invoices
+                .Include(i => i.Customer)
+                .Include(i => i.Items)
+                .ThenInclude(ii => ii.Product)
+                .Where(i => i.Status == InvoiceStatus.Completed)
+                .OrderByDescending(i => i.CompletedDate)
+                .ThenByDescending(i => i.InvoiceDate)
+                .ToList();
+        }
+
+        // ⭐ دالة جديدة: إعادة فاتورة مكتملة إلى حالة المسودة
+        public bool ReturnToDraft(int invoiceId)
+        {
+            var invoice = GetByIdWithItems(invoiceId);
+            if (invoice == null || invoice.Status != InvoiceStatus.Completed)
+                return false;
+
+            invoice.Status = InvoiceStatus.Draft;
+            invoice.CompletedDate = null; // مسح تاريخ الإكمال
+            _context.Invoices.Update(invoice);
+            SaveChanges();
+
+            return true;
+        }
+
         public void Add(Invoice invoice)
         {
             _context.Invoices.Add(invoice);

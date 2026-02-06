@@ -2,7 +2,6 @@
 {
     public static class ProductValidator
     {
-        // ✅ دوال التحقق من التكرار (دون اعتماد على Entity)
         public static ValidationResult ValidateNameUniqueness(string name, IEnumerable<object> allProducts, Guid? excludeId = null)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -13,7 +12,6 @@
                 var productList = allProducts as dynamic;
                 var exists = false;
 
-                // البحث في القائمة للتحقق من التكرار
                 foreach (var product in productList)
                 {
                     var productName = (string)product.GetType().GetProperty("Name")?.GetValue(product);
@@ -38,7 +36,7 @@
             }
             catch
             {
-                return new ValidationResult(true); // في حالة الخطأ، لا نمنع العملية
+                return new ValidationResult(true);
             }
         }
 
@@ -90,17 +88,14 @@
             IEnumerable<object> allProducts,
             Guid? excludeId = null)
         {
-            // التحقق الأساسي
             var basicValidation = ValidateAll(name, sku, price, unit, category, description);
             if (!basicValidation.IsValid)
                 return basicValidation;
 
-            // التحقق من تكرار الاسم
             var nameUniqueness = ValidateNameUniqueness(name, allProducts, excludeId);
             if (!nameUniqueness.IsValid)
                 return nameUniqueness;
 
-            // التحقق من تكرار الكود
             var skuUniqueness = ValidateSkuUniqueness(sku, allProducts, excludeId);
             if (!skuUniqueness.IsValid)
                 return skuUniqueness;
@@ -108,7 +103,6 @@
             return new ValidationResult(true);
         }
 
-        // ✅ دوال التحقق الأساسية الأصلية (محفوظة)
         public static ValidationResult ValidateName(string name)
         {
             if (string.IsNullOrWhiteSpace(name))

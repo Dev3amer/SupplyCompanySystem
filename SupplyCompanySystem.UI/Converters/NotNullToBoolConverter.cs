@@ -11,18 +11,15 @@ namespace SupplyCompanySystem.UI.Converters
 
             if (parameter is string paramString)
             {
-                // ✅ معالجة المعاملات مثل: "valueIfTrue|valueIfFalse"
                 if (paramString.Contains("|"))
                 {
                     var parts = paramString.Split('|');
                     if (parts.Length >= 2)
                     {
-                        // ✅ إرجاع القيمة المناسبة بناءً على null أو not null
                         return isNotNull ? parts[0] : parts[1];
                     }
                 }
 
-                // ✅ إذا كان المعامل لون (يبدأ بـ #)
                 if (paramString.StartsWith("#") && paramString.Contains("|"))
                 {
                     var parts = paramString.Split('|');
@@ -32,11 +29,9 @@ namespace SupplyCompanySystem.UI.Converters
                     }
                 }
 
-                // ✅ إذا كان المعامل كلمة واحدة، نستخدمها لـ true ونرجع null لـ false
                 return isNotNull ? paramString : null;
             }
 
-            // ✅ الإرجاع الافتراضي: true/false
             return isNotNull;
         }
 

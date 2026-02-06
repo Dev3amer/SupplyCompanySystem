@@ -20,7 +20,7 @@ namespace SupplyCompanySystem.UI.Converters
 
             if (decimal.TryParse(stringValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal result))
             {
-                return Math.Max(0, result); // التأكد من أن القيمة لا تقل عن صفر
+                return Math.Max(0, result);
             }
 
             return 0m;
