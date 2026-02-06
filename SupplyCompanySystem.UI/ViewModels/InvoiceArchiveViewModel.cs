@@ -15,7 +15,6 @@ namespace SupplyCompanySystem.UI.ViewModels
         private ObservableCollection<Customer> _customers;
         private Invoice _selectedInvoice;
 
-        // ✅ فلترة
         private DateTime _fromDate;
         private DateTime _toDate;
         private Customer _selectedCustomer;
@@ -48,7 +47,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _selectedInvoice = value;
                 OnPropertyChanged(nameof(SelectedInvoice));
-                // ✅ تحديث حالة الأزرار الإضافية
                 (ExportPdfCommand as RelayCommand)?.NotifyCanExecuteChanged();
                 (ExportPdfWithoutPricesCommand as RelayCommand)?.NotifyCanExecuteChanged();
             }
@@ -94,15 +92,10 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        // ✅ الأزرار الأساسية (دائماً ظاهرة)
-        public RelayCommand ExportExcelCommand { get; }      // تصدير Excel
-        public RelayCommand PrintPdfCommand { get; }         // طباعة PDF لكل الفواتير
-
-        // ✅ الأزرار الإضافية (تظهر فقط عند تحديد فاتورة)
-        public RelayCommand ExportPdfCommand { get; }        // تصدير PDF للفاتورة المحددة
-        public RelayCommand ExportPdfWithoutPricesCommand { get; } // تصدير PDF بدون أسعار للفاتورة المحددة
-
-        // ✅ أزرار الفلترة
+        public RelayCommand ExportExcelCommand { get; }
+        public RelayCommand PrintPdfCommand { get; }
+        public RelayCommand ExportPdfCommand { get; }
+        public RelayCommand ExportPdfWithoutPricesCommand { get; }
         public RelayCommand SearchCommand { get; }
         public RelayCommand ResetFilterCommand { get; }
 
@@ -117,15 +110,10 @@ namespace SupplyCompanySystem.UI.ViewModels
             _fromDate = new DateTime(DateTime.Now.Year, 1, 1);
             _toDate = DateTime.Now;
 
-            // ✅ الأزرار الأساسية
             ExportExcelCommand = new RelayCommand(_ => ExportExcel());
             PrintPdfCommand = new RelayCommand(_ => PrintPdf());
-
-            // ✅ الأزرار الإضافية (تتطلب تحديد فاتورة)
             ExportPdfCommand = new RelayCommand(_ => ExportPdf(), _ => SelectedInvoice != null);
             ExportPdfWithoutPricesCommand = new RelayCommand(_ => ExportPdfWithoutPrices(), _ => SelectedInvoice != null);
-
-            // ✅ أزرار الفلترة
             SearchCommand = new RelayCommand(_ => Search());
             ResetFilterCommand = new RelayCommand(_ => ResetFilter());
 
@@ -136,19 +124,17 @@ namespace SupplyCompanySystem.UI.ViewModels
         {
             try
             {
-                // تحميل الفواتير المكتملة فقط
                 var allInvoices = _invoiceRepository.GetAll();
                 var completedInvoices = allInvoices
                     .Where(i => i.Status == InvoiceStatus.Completed)
-                    .OrderByDescending(i => i.InvoiceDate)
+                    .OrderByDescending(i => i.InvoiceDate) // ✅ استخدام InvoiceDate بدلاً من CreatedDate
                     .ToList();
 
                 CompletedInvoices = new ObservableCollection<Invoice>(completedInvoices);
 
-                // تحميل العملاء النشطين فقط
                 var customers = _customerRepository.GetAll();
                 Customers.Clear();
-                Customers.Add(new Customer { Name = "الكل", Id = 0 }); // خيار "الكل"
+                Customers.Add(new Customer { Name = "الكل", Id = 0 });
                 foreach (var customer in customers.Where(c => c.IsActive))
                 {
                     Customers.Add(customer);
@@ -170,26 +156,24 @@ namespace SupplyCompanySystem.UI.ViewModels
                     .Where(i => i.Status == InvoiceStatus.Completed)
                     .ToList();
 
-                // ✅ فلترة حسب التاريخ
+                // ✅ فلترة حسب InvoiceDate (التاريخ الذي حدده المستخدم)
                 var filtered = allInvoices.Where(i =>
                     i.InvoiceDate.Date >= FromDate.Date &&
                     i.InvoiceDate.Date <= ToDate.Date
                 ).ToList();
 
-                // ✅ فلترة حسب العميل
-                if (SelectedCustomer != null && SelectedCustomer.Id != 0) // ليس "الكل"
+                if (SelectedCustomer != null && SelectedCustomer.Id != 0)
                 {
                     filtered = filtered.Where(i => i.Customer?.Id == SelectedCustomer.Id).ToList();
                 }
 
-                // ✅ فلترة حسب المبلغ
                 if (!string.IsNullOrWhiteSpace(MinAmount) && decimal.TryParse(MinAmount, out decimal minAmount))
                 {
                     filtered = filtered.Where(i => i.FinalAmount >= minAmount).ToList();
                 }
 
                 CompletedInvoices = new ObservableCollection<Invoice>(
-                    filtered.OrderByDescending(i => i.InvoiceDate)
+                    filtered.OrderByDescending(i => i.InvoiceDate) // ✅ ترتيب حسب InvoiceDate
                 );
 
                 MessageBox.Show($"تم العثور على {filtered.Count} فاتورة", "نتيجة البحث",
@@ -210,7 +194,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             LoadData();
         }
 
-        // ✅ دالة: تصدير Excel (للفواتير المفلترة)
         private void ExportExcel()
         {
             try
@@ -227,8 +210,6 @@ namespace SupplyCompanySystem.UI.ViewModels
                     "هذه الوظيفة قيد التطوير وسيتم تفعيلها قريباً.",
                     "تصدير إلى Excel",
                     MessageBoxButton.OK, MessageBoxImage.Information);
-
-                // TODO: سيتم إضافة كود التصدير إلى Excel هنا لاحقاً
             }
             catch (Exception ex)
             {
@@ -237,7 +218,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        // ✅ دالة: طباعة PDF (للفواتير المفلترة)
         private void PrintPdf()
         {
             try
@@ -254,8 +234,6 @@ namespace SupplyCompanySystem.UI.ViewModels
                     "هذه الوظيفة قيد التطوير وسيتم تفعيلها قريباً.",
                     "طباعة PDF",
                     MessageBoxButton.OK, MessageBoxImage.Information);
-
-                // TODO: سيتم إضافة كود إنشاء PDF لجميع الفواتير هنا لاحقاً
             }
             catch (Exception ex)
             {
@@ -264,7 +242,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        // ✅ دالة: تصدير PDF للفاتورة المحددة
         private void ExportPdf()
         {
             if (SelectedInvoice == null) return;
@@ -276,8 +253,6 @@ namespace SupplyCompanySystem.UI.ViewModels
                     "هذه الوظيفة قيد التطوير وسيتم تفعيلها قريباً.",
                     "تصدير PDF للفاتورة المحددة",
                     MessageBoxButton.OK, MessageBoxImage.Information);
-
-                // TODO: سيتم إضافة كود إنشاء PDF للفاتورة المحددة هنا لاحقاً
             }
             catch (Exception ex)
             {
@@ -286,7 +261,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        // ✅ دالة: تصدير PDF بدون أسعار للفاتورة المحددة
         private void ExportPdfWithoutPrices()
         {
             if (SelectedInvoice == null) return;
@@ -298,8 +272,6 @@ namespace SupplyCompanySystem.UI.ViewModels
                     "هذه الوظيفة قيد التطوير وسيتم تفعيلها قريباً.",
                     "تصدير PDF بدون أسعار",
                     MessageBoxButton.OK, MessageBoxImage.Information);
-
-                // TODO: سيتم إضافة كود إنشاء PDF بدون أسعار للفاتورة المحددة هنا لاحقاً
             }
             catch (Exception ex)
             {

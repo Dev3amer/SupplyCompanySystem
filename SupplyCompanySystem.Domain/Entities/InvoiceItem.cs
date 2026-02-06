@@ -11,9 +11,9 @@ namespace SupplyCompanySystem.Domain.Entities
         private Product _product;
         private decimal _quantity;
         private decimal _unitPrice;
-        private decimal _originalUnitPrice; // ✅ جديد: السعر الأصلي بدون مكسب
+        private decimal _originalUnitPrice; // ✅ السعر الأصلي بدون مكسب
         private decimal _discountPercentage;  // خصم لكل بند
-        private decimal _itemProfitMarginPercentage; // ✅ جديد: نسبة المكسب على المنتج الفردي
+        private decimal _itemProfitMarginPercentage; // ✅ نسبة المكسب على المنتج الفردي
         private decimal _lineTotal;
 
         public int InvoiceId
@@ -96,7 +96,7 @@ namespace SupplyCompanySystem.Domain.Entities
             }
         }
 
-        // ✅ جديد: السعر الأصلي للمنتج (بدون مكسب)
+        // ✅ السعر الأصلي للمنتج (بدون مكسب)
         public decimal OriginalUnitPrice
         {
             get => _originalUnitPrice;
@@ -125,7 +125,7 @@ namespace SupplyCompanySystem.Domain.Entities
             }
         }
 
-        // ✅ جديد: نسبة المكسب على المنتج الفردي
+        // ✅ نسبة المكسب على المنتج الفردي
         public decimal ItemProfitMarginPercentage
         {
             get => _itemProfitMarginPercentage;
@@ -154,14 +154,30 @@ namespace SupplyCompanySystem.Domain.Entities
             }
         }
 
-        // ✅ جديد: حساب الإجمالي مع الخصم
-        public decimal DiscountAmount => (Quantity * UnitPrice * DiscountPercentage) / 100;
+        // ✅ السعر بعد المكسب (يساوي UnitPrice لأنه بالفعل يحتوي على المكسب)
+        public decimal PriceAfterProfit => UnitPrice;
 
-        // ✅ جديد: حساب المكسب على هذا المنتج
+        // ✅ حساب الخصم على السعر الأصلي
+        public decimal DiscountAmount => (Quantity * OriginalUnitPrice * DiscountPercentage) / 100;
+
+        // ✅ حساب المكسب على هذا المنتج (على السعر الأصلي)
         public decimal ItemProfitAmount => (Quantity * OriginalUnitPrice * ItemProfitMarginPercentage) / 100;
 
-        // ✅ جديد: السعر بعد المكسب
-        public decimal PriceAfterProfit => OriginalUnitPrice + (OriginalUnitPrice * ItemProfitMarginPercentage / 100);
+        // ✅ حساب المكسب الفعلي الكلي (الفرق بين السعر النهائي والأصلي)
+        public decimal TotalItemProfit => (Quantity * UnitPrice) - (Quantity * OriginalUnitPrice);
+
+        // ✅ حساب نسبة المكسب الفعلية الكلية لعرضها في الجدول
+        public decimal EffectiveProfitMarginPercentage
+        {
+            get
+            {
+                if (OriginalUnitPrice <= 0)
+                    return 0;
+
+                // النسبة الفعلية = (السعر بعد المكسب - السعر الأصلي) / السعر الأصلي × 100
+                return ((UnitPrice - OriginalUnitPrice) / OriginalUnitPrice) * 100;
+            }
+        }
 
         public InvoiceItem()
         {
@@ -172,15 +188,16 @@ namespace SupplyCompanySystem.Domain.Entities
         public InvoiceItem(int productId, decimal quantity, decimal unitPrice)
         {
             ProductId = productId;
+            // ✅ تعيين OriginalUnitPrice أولاً قبل UnitPrice
+            OriginalUnitPrice = unitPrice;
             Quantity = quantity;
             UnitPrice = unitPrice;
-            OriginalUnitPrice = unitPrice; // ✅ تعيين السعر الأصلي
             DiscountPercentage = 0;
             ItemProfitMarginPercentage = 0;
             UpdateLineTotal();
         }
 
-        // ✅ جديد: تطبيق نسبة المكسب على السعر
+        // ✅ تطبيق نسبة المكسب على السعر
         private void ApplyProfitMarginToUnitPrice()
         {
             if (OriginalUnitPrice > 0)
@@ -191,13 +208,15 @@ namespace SupplyCompanySystem.Domain.Entities
         }
 
         // ✅ تحديث الإجمالي بناءً على الكمية والسعر والخصم
+        // الصيغة الصحيحة: (الكمية × السعر بعد المكسب) - الخصم على السعر الأصلي
         private void UpdateLineTotal()
         {
-            decimal subtotal = Quantity * UnitPrice;
-            decimal discountAmount = (subtotal * DiscountPercentage) / 100;
-            LineTotal = subtotal - discountAmount;
+            decimal subtotalWithProfit = Quantity * UnitPrice;
+            decimal discountAmount = (Quantity * OriginalUnitPrice * DiscountPercentage) / 100;
+            LineTotal = subtotalWithProfit - discountAmount;
             OnPropertyChanged(nameof(DiscountAmount));
             OnPropertyChanged(nameof(ItemProfitAmount));
+            OnPropertyChanged(nameof(PriceAfterProfit));
         }
 
         // ===== INotifyPropertyChanged =====

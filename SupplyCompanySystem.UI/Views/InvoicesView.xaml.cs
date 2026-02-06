@@ -402,5 +402,10 @@ namespace SupplyCompanySystem.UI.Views
         }
 
         #endregion
+
+        private void TextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+
+        }
     }
 }

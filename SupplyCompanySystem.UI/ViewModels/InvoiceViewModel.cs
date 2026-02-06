@@ -23,11 +23,9 @@ namespace SupplyCompanySystem.UI.ViewModels
         private ObservableCollection<Product> _products;
         private ObservableCollection<InvoiceItem> _invoiceItems;
 
-        // ✅ CollectionViewSource للبحث الفوري
         private CollectionViewSource _customersViewSource;
         private CollectionViewSource _productsViewSource;
 
-        // ✅ إضافة خصائص البحث الجديدة
         private string _customerSearchText;
         private string _productSearchText;
 
@@ -38,17 +36,30 @@ namespace SupplyCompanySystem.UI.ViewModels
         private Product _selectedProduct;
         private string _productQuantity;
         private string _productDiscount;
-        private string _productProfitMargin; // ✅ جديد: نسبة مكسب المنتج الفردي
-        private string _profitMarginPercentage; // نسبة مكسب الفاتورة كاملة
-        private string _invoiceDiscountPercentage; // ✅ جديد: نسبة خصم الفاتورة كاملة
+        private string _productProfitMargin;
+        private string _profitMarginPercentage;
+        private string _invoiceDiscountPercentage;
         private bool _isEditMode;
         private bool _isSaved;
 
-        // ✅ flags لمنع التحديث التلقائي
+        private DateTime _selectedInvoiceDate;
+
         private bool _isSelectingCustomer = false;
         private bool _isSelectingProduct = false;
 
-        // ===== Properties =====
+        // ✅ إضافة متغير لتتبع ما إذا كان التحديث من المستخدم
+        private bool _isUpdatingFromUser = false;
+
+        // ✅ إضافة متغيرات محسوبة لتخزين القيم بشكل منفصل
+        private decimal _totalBeforeDiscount = 0;
+        private decimal _totalItemsDiscount = 0;
+        private decimal _subTotalAfterItemsDiscount = 0;
+        private decimal _invoiceDiscountAmount = 0;
+        private decimal _finalAmountCalculated = 0;
+        private decimal _totalProfitAmount = 0;
+        private decimal _totalProductProfit = 0;
+        private decimal _totalInvoiceProfit = 0;
+
         public ObservableCollection<Invoice> Invoices
         {
             get => _invoices;
@@ -85,7 +96,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        // ✅ خاصية البحث في العملاء
         public string CustomerSearchText
         {
             get => _customerSearchText;
@@ -95,13 +105,11 @@ namespace SupplyCompanySystem.UI.ViewModels
                 {
                     _customerSearchText = value;
                     OnPropertyChanged(nameof(CustomerSearchText));
-                    // تحديث الفلترة عند تغيير نص البحث
                     _customersViewSource?.View?.Refresh();
                 }
             }
         }
 
-        // ✅ خاصية البحث في المنتجات
         public string ProductSearchText
         {
             get => _productSearchText;
@@ -111,16 +119,13 @@ namespace SupplyCompanySystem.UI.ViewModels
                 {
                     _productSearchText = value;
                     OnPropertyChanged(nameof(ProductSearchText));
-                    // تحديث الفلترة عند تغيير نص البحث
                     _productsViewSource?.View?.Refresh();
                 }
             }
         }
 
-        // ✅ عرض العملاء المفلترين
         public ICollectionView FilteredCustomersView => _customersViewSource?.View;
 
-        // ✅ عرض المنتجات المفلترة
         public ICollectionView FilteredProductsView => _productsViewSource?.View;
 
         public ObservableCollection<InvoiceItem> InvoiceItems
@@ -152,7 +157,7 @@ namespace SupplyCompanySystem.UI.ViewModels
 
                 OnPropertyChanged(nameof(InvoiceItems));
                 SyncInvoiceItems();
-                RecalculateTotals(); // ✅ إعادة حساب الإجماليات
+                RecalculateTotals();
             }
         }
 
@@ -173,10 +178,11 @@ namespace SupplyCompanySystem.UI.ViewModels
                         ? _currentInvoice.ProfitMarginPercentage.ToString()
                         : string.Empty;
 
-                    // ✅ تعيين نسبة خصم الفاتورة
                     InvoiceDiscountPercentage = _currentInvoice.InvoiceDiscountPercentage != 0
                         ? _currentInvoice.InvoiceDiscountPercentage.ToString()
                         : string.Empty;
+
+                    SelectedInvoiceDate = _currentInvoice.InvoiceDate;
                 }
 
                 OnPropertyChanged(nameof(CurrentInvoice));
@@ -197,7 +203,7 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _selectedInvoiceItem = value;
                 OnPropertyChanged(nameof(SelectedInvoiceItem));
-                (DeleteItemCommand as RelayCommand)?.NotifyCanExecuteChanged(); // ✅ تحديث حالة الزر
+                (DeleteItemCommand as RelayCommand)?.NotifyCanExecuteChanged();
             }
         }
 
@@ -230,14 +236,23 @@ namespace SupplyCompanySystem.UI.ViewModels
                 {
                     _selectedProduct = value;
                     OnPropertyChanged(nameof(SelectedProduct));
+                }
+            }
+        }
 
-                    // ✅ عند اختيار منتج، تعيين نسبة المكسب الافتراضية للمنتج
-                    if (value != null && !string.IsNullOrWhiteSpace(ProductProfitMargin))
+        public DateTime SelectedInvoiceDate
+        {
+            get => _selectedInvoiceDate;
+            set
+            {
+                if (_selectedInvoiceDate != value)
+                {
+                    _selectedInvoiceDate = value;
+                    OnPropertyChanged(nameof(SelectedInvoiceDate));
+
+                    if (_currentInvoice != null)
                     {
-                        if (decimal.TryParse(ProductProfitMargin, out decimal profitMargin) && profitMargin > 0)
-                        {
-                            // سيتم تطبيقه عند إضافة المنتج
-                        }
+                        _currentInvoice.InvoiceDate = value;
                     }
                 }
             }
@@ -250,7 +265,7 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _productQuantity = value;
                 OnPropertyChanged(nameof(ProductQuantity));
-                (AddItemCommand as RelayCommand)?.NotifyCanExecuteChanged(); // ✅ تحديث حالة الزر
+                (AddItemCommand as RelayCommand)?.NotifyCanExecuteChanged();
             }
         }
 
@@ -259,12 +274,14 @@ namespace SupplyCompanySystem.UI.ViewModels
             get => _productDiscount;
             set
             {
-                _productDiscount = value;
-                OnPropertyChanged(nameof(ProductDiscount));
+                if (_productDiscount != value)
+                {
+                    _productDiscount = value;
+                    OnPropertyChanged(nameof(ProductDiscount));
+                }
             }
         }
 
-        // ✅ جديد: نسبة مكسب المنتج الفردي
         public string ProductProfitMargin
         {
             get => _productProfitMargin;
@@ -274,18 +291,10 @@ namespace SupplyCompanySystem.UI.ViewModels
                 {
                     _productProfitMargin = value;
                     OnPropertyChanged(nameof(ProductProfitMargin));
-
-                    // ✅ تحديث نسبة المكسب للمنتج المحدد حالياً
-                    if (SelectedProduct != null && !string.IsNullOrWhiteSpace(value) &&
-                        decimal.TryParse(value, out decimal profitMargin))
-                    {
-                        // ستستخدم عند إضافة المنتج
-                    }
                 }
             }
         }
 
-        // نسبة مكسب الفاتورة كاملة
         public string ProfitMarginPercentage
         {
             get => _profitMarginPercentage;
@@ -308,8 +317,11 @@ namespace SupplyCompanySystem.UI.ViewModels
                         }
                     }
 
-                    RecalculateAllItemsPrices(); // ✅ تحديث الأسعار فوراً
-                    RecalculateTotals(); // ✅ تحديث الإجماليات فوراً
+                    // ✅ تحديث جميع الأسعار فوراً عند تغيير نسبة المكسب
+                    _isUpdatingFromUser = true;
+                    RecalculateAllItemsPrices();
+                    RecalculateTotals();
+                    _isUpdatingFromUser = false;
                 }
             }
         }
@@ -336,7 +348,10 @@ namespace SupplyCompanySystem.UI.ViewModels
                         }
                     }
 
-                    RecalculateTotals(); // ✅ تحديث الإجماليات فوراً
+                    // ✅ تحديث الإجماليات فوراً عند تغيير نسبة الخصم
+                    _isUpdatingFromUser = true;
+                    RecalculateTotals();
+                    _isUpdatingFromUser = false;
                 }
             }
         }
@@ -353,17 +368,119 @@ namespace SupplyCompanySystem.UI.ViewModels
             set { _isSaved = value; OnPropertyChanged(nameof(IsSaved)); }
         }
 
-        // ===== Computed Properties =====
-        public decimal TotalBeforeDiscount => _currentInvoice?.Items.Sum(i => i.Quantity * i.UnitPrice) ?? 0;
-        public decimal TotalItemsDiscount => _currentInvoice?.Items.Sum(i => (i.Quantity * i.UnitPrice * i.DiscountPercentage) / 100) ?? 0;
-        public decimal SubTotalAfterItemsDiscount => TotalBeforeDiscount - TotalItemsDiscount;
-        public decimal InvoiceDiscountAmount => (SubTotalAfterItemsDiscount * (_currentInvoice?.InvoiceDiscountPercentage ?? 0)) / 100;
-        public decimal FinalAmountCalculated => SubTotalAfterItemsDiscount - InvoiceDiscountAmount;
+        // ✅ تعديل الخصائص المحسوبة لتعمل بشكل صحيح حتى عندما تكون CurrentInvoice = null
+        public decimal TotalBeforeDiscount
+        {
+            get => _totalBeforeDiscount;
+            private set
+            {
+                if (_totalBeforeDiscount != value)
+                {
+                    _totalBeforeDiscount = value;
+                    OnPropertyChanged(nameof(TotalBeforeDiscount));
+                }
+            }
+        }
 
-        // ✅ جديد: إجمالي المكسب من جميع المنتجات
-        public decimal TotalProfitAmount => _currentInvoice?.Items.Sum(i => i.ItemProfitAmount) ?? 0;
+        public decimal TotalItemsDiscount
+        {
+            get => _totalItemsDiscount;
+            private set
+            {
+                if (_totalItemsDiscount != value)
+                {
+                    _totalItemsDiscount = value;
+                    OnPropertyChanged(nameof(TotalItemsDiscount));
+                }
+            }
+        }
 
-        // ===== Commands =====
+        public decimal SubTotalAfterItemsDiscount
+        {
+            get => _subTotalAfterItemsDiscount;
+            private set
+            {
+                if (_subTotalAfterItemsDiscount != value)
+                {
+                    _subTotalAfterItemsDiscount = value;
+                    OnPropertyChanged(nameof(SubTotalAfterItemsDiscount));
+                }
+            }
+        }
+
+        public decimal InvoiceDiscountAmount
+        {
+            get => _invoiceDiscountAmount;
+            private set
+            {
+                if (_invoiceDiscountAmount != value)
+                {
+                    _invoiceDiscountAmount = value;
+                    OnPropertyChanged(nameof(InvoiceDiscountAmount));
+                }
+            }
+        }
+
+        public decimal FinalAmountCalculated
+        {
+            get => _finalAmountCalculated;
+            private set
+            {
+                if (_finalAmountCalculated != value)
+                {
+                    _finalAmountCalculated = value;
+                    OnPropertyChanged(nameof(FinalAmountCalculated));
+                }
+            }
+        }
+
+        public decimal TotalProfitAmount
+        {
+            get => _totalProfitAmount;
+            private set
+            {
+                if (_totalProfitAmount != value)
+                {
+                    _totalProfitAmount = value;
+                    OnPropertyChanged(nameof(TotalProfitAmount));
+                }
+            }
+        }
+
+        // ✅ مكسب المنتجات الفردي
+        public decimal TotalProductProfit
+        {
+            get => _totalProductProfit;
+            private set
+            {
+                if (_totalProductProfit != value)
+                {
+                    _totalProductProfit = value;
+                    OnPropertyChanged(nameof(TotalProductProfit));
+                }
+            }
+        }
+
+        // ✅ مكسب الفاتورة الإضافي
+        public decimal TotalInvoiceProfit
+        {
+            get => _totalInvoiceProfit;
+            private set
+            {
+                if (_totalInvoiceProfit != value)
+                {
+                    _totalInvoiceProfit = value;
+                    OnPropertyChanged(nameof(TotalInvoiceProfit));
+                }
+            }
+        }
+
+        // ✅ إجمالي الخصم (خصم المنتجات + خصم الفاتورة)
+        public decimal TotalDiscountAmount
+        {
+            get => TotalItemsDiscount + InvoiceDiscountAmount;
+        }
+
         public RelayCommand NewInvoiceCommand { get; }
         public RelayCommand SaveInvoiceCommand { get; }
         public RelayCommand CancelCommand { get; }
@@ -371,16 +488,13 @@ namespace SupplyCompanySystem.UI.ViewModels
         public RelayCommand RemoveItemCommand { get; }
         public RelayCommand DeleteItemCommand { get; }
         public RelayCommand CompleteInvoiceCommand { get; }
-        //public RelayCommand SelectInvoiceCommand { get; }
         public RelayCommand EditInvoiceCommand { get; }
         public RelayCommand CancelInvoiceCommand { get; }
         public RelayCommand DeleteInvoiceCommand { get; }
 
-        // ✅ إضافة الـ Commands للبحث
         public RelayCommand ClearCustomerSearchCommand { get; }
         public RelayCommand ClearProductSearchCommand { get; }
 
-        // ===== Constructor =====
         public InvoiceViewModel(IInvoiceRepository invoiceRepository, ICustomerRepository customerRepository, IProductRepository productRepository)
         {
             _invoiceRepository = invoiceRepository;
@@ -392,7 +506,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             Products = new ObservableCollection<Product>();
             InvoiceItems = new ObservableCollection<InvoiceItem>();
 
-            // ✅ إعداد CollectionViewSource للبحث
             _customersViewSource = new CollectionViewSource { Source = Customers };
             _customersViewSource.Filter += CustomersViewSource_Filter;
 
@@ -400,10 +513,12 @@ namespace SupplyCompanySystem.UI.ViewModels
             _productsViewSource.Filter += ProductsViewSource_Filter;
 
             _profitMarginPercentage = string.Empty;
-            _invoiceDiscountPercentage = string.Empty; // ✅ تهيئة
-            _productProfitMargin = string.Empty; // ✅ تهيئة
+            _invoiceDiscountPercentage = string.Empty;
+            _productProfitMargin = string.Empty;
             _customerSearchText = string.Empty;
             _productSearchText = string.Empty;
+
+            SelectedInvoiceDate = DateTime.Now;
 
             NewInvoiceCommand = new RelayCommand(_ => NewInvoice());
             SaveInvoiceCommand = new RelayCommand(_ => SaveInvoice());
@@ -412,12 +527,10 @@ namespace SupplyCompanySystem.UI.ViewModels
             RemoveItemCommand = new RelayCommand(_ => RemoveItem(), _ => InvoiceItems.Count > 0);
             DeleteItemCommand = new RelayCommand(_ => DeleteSelectedItem(), _ => SelectedInvoiceItem != null);
             CompleteInvoiceCommand = new RelayCommand(_ => CompleteInvoice(), _ => _currentInvoice != null && InvoiceItems.Count > 0 && _isSaved);
-            //SelectInvoiceCommand = new RelayCommand(_ => SelectInvoice());
             EditInvoiceCommand = new RelayCommand(_ => EditInvoice());
             CancelInvoiceCommand = new RelayCommand(_ => CancelInvoice());
             DeleteInvoiceCommand = new RelayCommand(_ => DeleteInvoice());
 
-            // ✅ إضافة Commands البحث
             ClearCustomerSearchCommand = new RelayCommand(_ =>
             {
                 CustomerSearchText = string.Empty;
@@ -437,7 +550,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             LoadData();
         }
 
-        // ✅ معالج فلترة العملاء
         private void CustomersViewSource_Filter(object sender, FilterEventArgs e)
         {
             if (e.Item is Customer customer)
@@ -460,7 +572,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        // ✅ معالج فلترة المنتجات
         private void ProductsViewSource_Filter(object sender, FilterEventArgs e)
         {
             if (e.Item is Product product)
@@ -483,9 +594,15 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void UpdateTimer_Tick(object sender, EventArgs e) => RecalculateTotals();
+        private void UpdateTimer_Tick(object sender, EventArgs e)
+        {
+            // ✅ تحديث الإجماليات فقط إذا كان التحديث ليس من المستخدم
+            if (!_isUpdatingFromUser)
+            {
+                RecalculateTotals();
+            }
+        }
 
-        // ===== Events =====
         private void CurrentInvoice_PropertyChanged(object sender, PropertyChangedEventArgs e) { }
 
         private void InvoiceItems_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -522,13 +639,25 @@ namespace SupplyCompanySystem.UI.ViewModels
                     e.PropertyName == nameof(InvoiceItem.DiscountPercentage) ||
                     e.PropertyName == nameof(InvoiceItem.ItemProfitMarginPercentage))
                 {
-                    item.LineTotal = (item.Quantity * item.UnitPrice) - ((item.Quantity * item.UnitPrice * item.DiscountPercentage) / 100);
+                    // ✅ تصحيح حساب LineTotal - الخصم يتم على السعر الأصلي
+                    item.LineTotal = CalculateLineTotal(item.Quantity, item.OriginalUnitPrice, item.UnitPrice, item.DiscountPercentage);
                     RecalculateTotals();
                 }
             }
         }
 
-        // ===== Helpers =====
+        // ✅ تحديث دالة حساب LineTotal بشكل صحيح
+        private decimal CalculateLineTotal(decimal quantity, decimal originalUnitPrice, decimal unitPrice, decimal discountPercentage)
+        {
+            // 1. حساب الكمية × السعر الأصلي
+            decimal originalTotal = quantity * originalUnitPrice;
+
+            // 2. حساب الخصم على السعر الأصلي
+            decimal discountAmount = (originalTotal * discountPercentage) / 100;
+
+            // 3. النتيجة = كمية × السعر بعد المكسب - الخصم على الأصلي
+            return (quantity * unitPrice) - discountAmount;
+        }
 
         private decimal CalculatePriceWithProfitMargin(decimal basePrice, decimal profitMarginPercentage)
         {
@@ -536,6 +665,18 @@ namespace SupplyCompanySystem.UI.ViewModels
                 return basePrice;
 
             return basePrice + (basePrice * profitMarginPercentage / 100);
+        }
+
+        private decimal CalculateCumulativePrice(decimal basePrice, decimal productProfitMargin, decimal invoiceProfitMargin)
+        {
+            // ✅ حساب السعر بشكل متسلسل: أولاً مكسب المنتج، ثم مكسب الفاتورة
+            // السعر بعد مكسب المنتج
+            decimal priceAfterProduct = basePrice + (basePrice * productProfitMargin / 100);
+
+            // السعر بعد مكسب الفاتورة (يطبق على السعر بعد مكسب المنتج)
+            decimal finalPrice = priceAfterProduct + (priceAfterProduct * invoiceProfitMargin / 100);
+
+            return finalPrice;
         }
 
         private void RecalculateAllItemsPrices()
@@ -554,36 +695,87 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 if (item.Product != null)
                 {
-                    decimal basePrice = item.Product.Price;
+                    // ✅ استخدام OriginalUnitPrice المحفوظ، وليس Product.Price
+                    decimal basePrice = item.OriginalUnitPrice;
                     decimal itemProfitMargin = item.ItemProfitMarginPercentage;
 
-                    // ✅ تطبيق نسبة المكسب الأكبر: إما نسبة الفاتورة أو نسبة المنتج
-                    decimal profitMarginToApply = Math.Max(invoiceProfitMargin, itemProfitMargin);
+                    // ✅ استخدام الحساب المتسلسل مع مكسب الفاتورة الجديد
+                    decimal finalUnitPrice = CalculateCumulativePrice(basePrice, itemProfitMargin, invoiceProfitMargin);
+                    item.UnitPrice = finalUnitPrice;
 
-                    item.OriginalUnitPrice = basePrice;
-                    item.UnitPrice = CalculatePriceWithProfitMargin(basePrice, profitMarginToApply);
-
-                    // ✅ إذا تم تغيير السعر، نحتاج لتحديث LineTotal
-                    item.LineTotal = (item.Quantity * item.UnitPrice) -
-                                    ((item.Quantity * item.UnitPrice * item.DiscountPercentage) / 100);
+                    // UpdateLineTotal سيتم استدعاؤه تلقائياً عند تعيين UnitPrice ✅
                 }
             }
             RecalculateTotals();
         }
 
+        // ✅ تم تحديث الدالة بشكل كامل
         private void RecalculateTotals()
         {
-            if (_currentInvoice == null) return;
+            if (_currentInvoice == null)
+            {
+                // ✅ إذا كانت الفاتورة null، نقوم بتفريغ جميع القيم
+                TotalBeforeDiscount = 0;
+                TotalItemsDiscount = 0;
+                SubTotalAfterItemsDiscount = 0;
+                InvoiceDiscountAmount = 0;
+                FinalAmountCalculated = 0;
+                TotalProfitAmount = 0;
+                TotalProductProfit = 0;    // ✅ إضافة هذا
+                TotalInvoiceProfit = 0;     // ✅ إضافة هذا
+                return;
+            }
 
-            _currentInvoice.TotalAmount = TotalBeforeDiscount;
-            _currentInvoice.FinalAmount = FinalAmountCalculated;
+            // ✅ حساب الإجماليات بشكل صحيح
+            // 1. مجموع الأسعار الأصلية (قبل المكسب والخصم)
+            decimal totalOriginalPrice = _currentInvoice.Items?.Sum(i => i.Quantity * i.OriginalUnitPrice) ?? 0;
 
-            OnPropertyChanged(nameof(TotalBeforeDiscount));
-            OnPropertyChanged(nameof(TotalItemsDiscount));
-            OnPropertyChanged(nameof(SubTotalAfterItemsDiscount));
-            OnPropertyChanged(nameof(InvoiceDiscountAmount));
-            OnPropertyChanged(nameof(FinalAmountCalculated));
-            OnPropertyChanged(nameof(TotalProfitAmount)); // ✅ تحديث عرض المكسب الكلي
+            // 2. مجموع الخصم على السعر الأصلي
+            decimal totalItemsDiscount = _currentInvoice.Items?.Sum(i => (i.Quantity * i.OriginalUnitPrice * i.DiscountPercentage) / 100) ?? 0;
+
+            // 3. مجموع الأسعار بعد الخصم
+            decimal subTotalAfterItemsDiscount = totalOriginalPrice - totalItemsDiscount;
+
+            // 4. مجموع المكسب من جميع المنتجات (مكسب المنتج فقط على السعر الأصلي)
+            decimal totalProductProfit = _currentInvoice.Items?.Sum(i => (i.Quantity * i.OriginalUnitPrice * i.ItemProfitMarginPercentage) / 100) ?? 0;
+
+            // 5. الإجمالي قبل خصم الفاتورة ومكسب الفاتورة
+            decimal totalBeforeInvoiceMargin = subTotalAfterItemsDiscount + totalProductProfit;
+
+            // 6. مكسب الفاتورة يطبق على الإجمالي بعد مكسب المنتجات
+            decimal invoiceProfitMargin = 0;
+            if (!string.IsNullOrWhiteSpace(ProfitMarginPercentage) &&
+                decimal.TryParse(ProfitMarginPercentage, out decimal profitRate))
+            {
+                invoiceProfitMargin = profitRate;
+            }
+            decimal totalInvoiceProfit = (totalBeforeInvoiceMargin * invoiceProfitMargin) / 100;
+
+            // 7. الإجمالي قبل خصم الفاتورة (بعد جميع المكاسب)
+            decimal totalBeforeInvoiceDiscount = totalBeforeInvoiceMargin + totalInvoiceProfit;
+
+            // 8. خصم الفاتورة
+            decimal invoiceDiscountAmount = (totalBeforeInvoiceDiscount * (_currentInvoice.InvoiceDiscountPercentage)) / 100;
+
+            // 9. الإجمالي النهائي
+            decimal finalAmountCalculated = totalBeforeInvoiceDiscount - invoiceDiscountAmount;
+
+            // ✅ حساب المكسب الكلي (مكسب المنتجات + مكسب الفاتورة)
+            decimal totalProfitAmount = totalProductProfit + totalInvoiceProfit;
+
+            // ✅ تحديث الخصائص
+            TotalBeforeDiscount = totalOriginalPrice;
+            TotalItemsDiscount = totalItemsDiscount;
+            SubTotalAfterItemsDiscount = totalBeforeInvoiceMargin;
+            InvoiceDiscountAmount = invoiceDiscountAmount;
+            FinalAmountCalculated = finalAmountCalculated;
+            TotalProfitAmount = totalProfitAmount;
+            TotalProductProfit = totalProductProfit;  // ✅ إضافة هذا
+            TotalInvoiceProfit = totalInvoiceProfit;   // ✅ إضافة هذا
+
+            // ✅ تحديث الفاتورة
+            _currentInvoice.TotalAmount = totalBeforeInvoiceDiscount;
+            _currentInvoice.FinalAmount = finalAmountCalculated;
         }
 
         private void SyncInvoiceItems()
@@ -598,10 +790,8 @@ namespace SupplyCompanySystem.UI.ViewModels
                    !string.IsNullOrWhiteSpace(ProductQuantity) &&
                    decimal.TryParse(ProductQuantity, out decimal qty) &&
                    qty > 0;
-            // ✅ تم إزالة شرط كتابة مكسب الفاتورة
         }
 
-        // ===== Commands Methods =====
         private void LoadData()
         {
             try
@@ -665,29 +855,37 @@ namespace SupplyCompanySystem.UI.ViewModels
 
         private void NewInvoice()
         {
-            CurrentInvoice = new Invoice
+            DateTime invoiceDate = SelectedInvoiceDate;
+
+            CurrentInvoice = new Invoice(invoiceDate)
             {
-                InvoiceDate = DateTime.Now,
                 Status = InvoiceStatus.Draft,
                 FinalAmount = 0,
                 TotalAmount = 0,
                 Items = new List<InvoiceItem>(),
                 ProfitMarginPercentage = 0,
-                InvoiceDiscountPercentage = 0 // ✅ قيمة افتراضية
+                InvoiceDiscountPercentage = 0
             };
+
             InvoiceItems = new ObservableCollection<InvoiceItem>();
             SelectedCustomer = null;
             SelectedProduct = null;
             ProductQuantity = string.Empty;
             ProductDiscount = string.Empty;
-            ProductProfitMargin = string.Empty; // ✅ تفريغ
+            ProductProfitMargin = string.Empty;
             ProfitMarginPercentage = string.Empty;
-            InvoiceDiscountPercentage = string.Empty; // ✅ تفريغ
-            CustomerSearchText = string.Empty; // ✅ تفريغ البحث
-            ProductSearchText = string.Empty;  // ✅ تفريغ البحث
+            InvoiceDiscountPercentage = string.Empty;
+            CustomerSearchText = string.Empty;
+            ProductSearchText = string.Empty;
             SelectedInvoiceFromList = null;
-            IsEditMode = true; // ✅ نبدأ مباشرة في وضع التحرير
+            IsEditMode = true;
             IsSaved = false;
+
+            // ✅ إعادة حساب الإجماليات لتحديث الواجهة
+            RecalculateTotals();
+
+            MessageBox.Show($"تم إنشاء فاتورة جديدة بتاريخ: {invoiceDate:yyyy/MM/dd}",
+                "فاتورة جديدة", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void SelectInvoice()
@@ -703,24 +901,25 @@ namespace SupplyCompanySystem.UI.ViewModels
             CurrentInvoice = SelectedInvoiceFromList;
             InvoiceItems = new ObservableCollection<InvoiceItem>(SelectedInvoiceFromList.Items ?? new List<InvoiceItem>());
             SelectedCustomer = SelectedInvoiceFromList.Customer;
+            SelectedInvoiceDate = SelectedInvoiceFromList.InvoiceDate;
             ProfitMarginPercentage = SelectedInvoiceFromList.ProfitMarginPercentage != 0
                 ? SelectedInvoiceFromList.ProfitMarginPercentage.ToString()
                 : string.Empty;
             InvoiceDiscountPercentage = SelectedInvoiceFromList.InvoiceDiscountPercentage != 0
                 ? SelectedInvoiceFromList.InvoiceDiscountPercentage.ToString()
                 : string.Empty;
-            CustomerSearchText = SelectedCustomer?.Name ?? string.Empty; // ✅ تعيين اسم العميل في البحث
-            ProductSearchText = string.Empty;  // ✅ تفريغ البحث
+            CustomerSearchText = SelectedCustomer?.Name ?? string.Empty;
+            ProductSearchText = string.Empty;
             IsEditMode = false;
             IsSaved = true;
+
+            // ✅ إعادة حساب الإجماليات لتحديث الواجهة
+            RecalculateTotals();
         }
 
         private void EditInvoice()
         {
-            // ✅ الخطوة 1: تحديث البيانات (وظيفة التحديث القديمة)
             SelectInvoice();
-
-            // ✅ الخطوة 2: تفعيل وضع التحرير
             IsEditMode = true;
         }
 
@@ -736,53 +935,62 @@ namespace SupplyCompanySystem.UI.ViewModels
             if (!string.IsNullOrWhiteSpace(ProductProfitMargin))
                 decimal.TryParse(ProductProfitMargin, out itemProfitMargin);
 
-            // ✅ حساب السعر مع المكسب
             decimal originalPrice = SelectedProduct.Price;
-            decimal priceWithMargin = CalculatePriceWithProfitMargin(originalPrice, itemProfitMargin);
 
-            // البحث عن المنتج الموجود حالياً
+            // ✅ حساب مكسب الفاتورة الحالي
+            decimal invoiceProfitMargin = 0;
+            if (!string.IsNullOrWhiteSpace(ProfitMarginPercentage) &&
+                decimal.TryParse(ProfitMarginPercentage, out decimal invoiceMargin))
+            {
+                invoiceProfitMargin = invoiceMargin;
+            }
+
+            // ✅ حساب السعر باستخدام الحساب المتسلسل (مكسب المنتج + مكسب الفاتورة)
+            decimal finalUnitPrice = CalculateCumulativePrice(originalPrice, itemProfitMargin, invoiceProfitMargin);
+
             var existing = InvoiceItems.FirstOrDefault(i => i.ProductId == SelectedProduct.Id);
 
             if (existing != null)
             {
-                // ✅ تحديث المنتج الموجود مع نقله للأعلى
                 existing.Quantity += quantity;
-                existing.DiscountPercentage = itemDiscount; // ✅ تعيين الخصم
+                existing.DiscountPercentage = itemDiscount;
                 existing.ItemProfitMarginPercentage = itemProfitMargin;
                 existing.OriginalUnitPrice = originalPrice;
-                existing.UnitPrice = priceWithMargin;
-                existing.LineTotal = (existing.Quantity * existing.UnitPrice) -
-                                    ((existing.Quantity * existing.UnitPrice * existing.DiscountPercentage) / 100);
+                existing.UnitPrice = finalUnitPrice;
+                // ✅ ترك UpdateLineTotal في InvoiceItem يقوم بالحساب تلقائياً عند تغيير UnitPrice
 
-                // ✅ نقل المنتج إلى أول القائمة
                 int idx = InvoiceItems.IndexOf(existing);
                 InvoiceItems.Move(idx, 0);
             }
             else
             {
-                // ✅ إضافة المنتج الجديد في بداية القائمة (الأعلى)
-                var newItem = new InvoiceItem(SelectedProduct.Id, quantity, priceWithMargin)
+                // ✅ تعيين جميع القيم قبل إنشاء الكائن
+                var newItem = new InvoiceItem()
                 {
+                    ProductId = SelectedProduct.Id,
                     Product = SelectedProduct,
-                    DiscountPercentage = itemDiscount, // ✅ تعيين الخصم
-                    ItemProfitMarginPercentage = itemProfitMargin,
-                    OriginalUnitPrice = originalPrice
+                    Quantity = quantity,
+                    OriginalUnitPrice = originalPrice,
+                    UnitPrice = finalUnitPrice,  // ✅ يحتوي على مكسب المنتج + مكسب الفاتورة
+                    DiscountPercentage = itemDiscount,
+                    ItemProfitMarginPercentage = itemProfitMargin
                 };
-                newItem.LineTotal = (newItem.Quantity * newItem.UnitPrice) -
-                                   ((newItem.Quantity * newItem.UnitPrice * newItem.DiscountPercentage) / 100);
+                // ✅ لا نحتاج لحساب LineTotal يدويًا لأن UpdateLineTotal سيتم استدعاؤه تلقائياً
 
-                InvoiceItems.Insert(0, newItem); // ✅ إدراج في البداية بدلاً من Add
+                InvoiceItems.Insert(0, newItem);
             }
 
-            // ✅ تحديث الواجهة
             SelectedProduct = null;
             ProductQuantity = string.Empty;
-            ProductDiscount = string.Empty; // ✅ تفريغ حقل الخصم
-            ProductProfitMargin = string.Empty; // ✅ تفريغ حقل المكسب
+            ProductDiscount = string.Empty;
+            ProductProfitMargin = string.Empty;
             ProductSearchText = string.Empty;
-            RecalculateTotals();
 
-            // ✅ إذا كان DataGrid يسمح بالتحديد التلقائي
+            // ✅ تحديث الإجماليات مباشرة
+            _isUpdatingFromUser = true;
+            RecalculateTotals();
+            _isUpdatingFromUser = false;
+
             if (InvoiceItems.Count > 0)
             {
                 SelectedInvoiceItem = InvoiceItems.First();
@@ -791,12 +999,20 @@ namespace SupplyCompanySystem.UI.ViewModels
 
         private void RemoveItem()
         {
-            if (InvoiceItems.Count > 0) InvoiceItems.RemoveAt(InvoiceItems.Count - 1);
+            if (InvoiceItems.Count > 0)
+            {
+                InvoiceItems.RemoveAt(InvoiceItems.Count - 1);
+                RecalculateTotals();
+            }
         }
 
         private void DeleteSelectedItem()
         {
-            if (SelectedInvoiceItem != null) InvoiceItems.Remove(SelectedInvoiceItem);
+            if (SelectedInvoiceItem != null)
+            {
+                InvoiceItems.Remove(SelectedInvoiceItem);
+                RecalculateTotals();
+            }
         }
 
         private void SaveInvoice()
@@ -810,7 +1026,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             CurrentInvoice.CustomerId = SelectedCustomer.Id;
             CurrentInvoice.Customer = SelectedCustomer;
 
-            // ✅ حفظ نسبة مكسب الفاتورة
             if (string.IsNullOrWhiteSpace(ProfitMarginPercentage))
             {
                 CurrentInvoice.ProfitMarginPercentage = 0;
@@ -820,7 +1035,6 @@ namespace SupplyCompanySystem.UI.ViewModels
                 CurrentInvoice.ProfitMarginPercentage = profitMargin;
             }
 
-            // ✅ حفظ نسبة خصم الفاتورة
             if (string.IsNullOrWhiteSpace(InvoiceDiscountPercentage))
             {
                 CurrentInvoice.InvoiceDiscountPercentage = 0;
@@ -862,7 +1076,8 @@ namespace SupplyCompanySystem.UI.ViewModels
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
 
-                Cancel();
+                // ✅ تنظيف كل شيء بعد إكمال الفاتورة
+                ResetAllFields();
                 LoadData();
             }
             catch (Exception ex)
@@ -907,12 +1122,46 @@ namespace SupplyCompanySystem.UI.ViewModels
             SelectedProduct = null;
             ProductQuantity = string.Empty;
             ProductDiscount = string.Empty;
-            ProductProfitMargin = string.Empty; // ✅ تفريغ
+            ProductProfitMargin = string.Empty;
             ProfitMarginPercentage = string.Empty;
-            InvoiceDiscountPercentage = string.Empty; // ✅ تفريغ
-            CustomerSearchText = string.Empty; // ✅ تفريغ البحث
-            ProductSearchText = string.Empty;  // ✅ تفريغ البحث
+            InvoiceDiscountPercentage = string.Empty;
+            CustomerSearchText = string.Empty;
+            ProductSearchText = string.Empty;
             SelectedInvoiceFromList = null;
+            SelectedInvoiceDate = DateTime.Now;
+
+            // ✅ تفريغ جميع الإجماليات
+            RecalculateTotals();
+        }
+
+        // ✅ دالة جديدة لتنظيف جميع الحقول
+        private void ResetAllFields()
+        {
+            IsEditMode = false;
+            IsSaved = false;
+            CurrentInvoice = null;
+            InvoiceItems = new ObservableCollection<InvoiceItem>();
+            SelectedCustomer = null;
+            SelectedProduct = null;
+            ProductQuantity = string.Empty;
+            ProductDiscount = string.Empty;
+            ProductProfitMargin = string.Empty;
+            ProfitMarginPercentage = string.Empty;
+            InvoiceDiscountPercentage = string.Empty;
+            CustomerSearchText = string.Empty;
+            ProductSearchText = string.Empty;
+            SelectedInvoiceFromList = null;
+            SelectedInvoiceDate = DateTime.Now;
+
+            // ✅ تفريغ جميع الإجماليات
+            TotalBeforeDiscount = 0;
+            TotalItemsDiscount = 0;
+            SubTotalAfterItemsDiscount = 0;
+            InvoiceDiscountAmount = 0;
+            FinalAmountCalculated = 0;
+            TotalProfitAmount = 0;
+            TotalProductProfit = 0;    // ✅ إضافة هذا
+            TotalInvoiceProfit = 0;     // ✅ إضافة هذا
         }
 
         public void Dispose()

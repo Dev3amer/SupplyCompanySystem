@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:SupplyCompanySystem.UI.Views"
              xmlns:conv="clr-namespace:SupplyCompanySystem.UI.Converters"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
              mc:Ignorable="d" 
              Background="White"
              FlowDirection="RightToLeft"
@@ -16,7 +17,6 @@
         <conv:StatusToStringConverter x:Key="StatusToStringConverter"/>
         <conv:StatusToColorConverter x:Key="StatusToColorConverter"/>
 
-        <!-- خلايا في المنتصف -->
         <Style x:Key="CenteredCellStyle" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -25,7 +25,6 @@
             <Setter Property="Padding" Value="4"/>
         </Style>
 
-        <!-- خلايا محاذاة يمين (لأسماء) -->
         <Style x:Key="RightAlignedCellStyle" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -34,7 +33,6 @@
             <Setter Property="Padding" Value="4"/>
         </Style>
 
-        <!-- رؤوس أعمدة محسنة -->
         <Style x:Key="CenteredHeaderStyle" TargetType="DataGridColumnHeader">
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -48,7 +46,6 @@
             <Setter Property="Height" Value="32"/>
         </Style>
 
-        <!-- ستايل DataGrid لإزالة الفراغات مع الحفاظ على التحديد -->
         <Style x:Key="NoPaddingDataGrid" TargetType="DataGrid">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="0"/>
@@ -59,19 +56,14 @@
             <Setter Property="AlternatingRowBackground" Value="#FFFFFF"/>
             <Setter Property="HorizontalGridLinesBrush" Value="#E0E0E0"/>
             <Setter Property="VerticalGridLinesBrush" Value="#E0E0E0"/>
-            <!-- إضافة حدود أعمدة -->
             <Setter Property="GridLinesVisibility" Value="All"/>
-            <!-- إظهار كلا الخطوط -->
             <Setter Property="CellStyle">
                 <Setter.Value>
                     <Style TargetType="DataGridCell">
                         <Setter Property="Padding" Value="4"/>
-                        <!-- إضافة padding داخلي -->
                         <Setter Property="Margin" Value="0"/>
                         <Setter Property="BorderThickness" Value="0,0,1,1"/>
-                        <!-- حدود يمين وأسفل -->
                         <Setter Property="BorderBrush" Value="#E0E0E0"/>
-                        <!-- لون الحدود -->
                         <Setter Property="Background" Value="Transparent"/>
                         <Setter Property="Template">
                             <Setter.Value>
@@ -126,7 +118,6 @@
                                 <Setter Property="Background" Value="#FFC107"/>
                                 <Setter Property="Foreground" Value="#1A1A1A"/>
                             </Trigger>
-                            <!-- تلوين الصفوف البديلة -->
                             <Trigger Property="AlternationIndex" Value="0">
                                 <Setter Property="Background" Value="#FFFFFF"/>
                             </Trigger>
@@ -137,7 +128,6 @@
                     </Style>
                 </Setter.Value>
             </Setter>
-            <!-- تحسين مظهر رؤوس الأعمدة -->
             <Setter Property="ColumnHeaderStyle">
                 <Setter.Value>
                     <Style TargetType="DataGridColumnHeader">
@@ -171,67 +161,70 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- أنماط جديدة للتصميم المحسن -->
+        <Style x:Key="SummaryItemStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
+
+        <Style x:Key="SummaryValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="8,2,0,2"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+        </Style>
+
+        <Style x:Key="CompactTextBox" TargetType="TextBox">
+            <Setter Property="Padding" Value="6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Top Controls Bar -->
+        <!-- شريط الأوامر العلوي -->
         <Border Grid.Row="0" Background="#F8F9FA" Padding="8,10" BorderThickness="0,0,0,1" BorderBrush="#E0E0E0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="فاتورة جديدة" 
-                        Command="{Binding NewInvoiceCommand}" 
-                        Background="#2ECC71" 
-                        Foreground="White" 
-                        Padding="10,6" 
-                        FontSize="11" 
-                        BorderThickness="0" 
-                        Margin="0,0,5,0"
-                        Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
-
-                <Button Content="حفظ الفاتورة" 
-                        Command="{Binding SaveInvoiceCommand}" 
-                        Background="#3498DB" 
-                        Foreground="White" 
-                        Padding="10,6" 
-                        FontSize="11" 
-                        BorderThickness="0" 
-                        Margin="0,0,5,0"
-                        Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-                <Button Content="إلغاء" 
-                        Command="{Binding CancelCommand}" 
-                        Background="#95A5A6" 
-                        Foreground="White" 
-                        Padding="10,6" 
-                        FontSize="11" 
-                        BorderThickness="0" 
-                        Margin="0,0,5,0"
-                        Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-                <Button Content="إكمال الفاتورة" 
-                        Command="{Binding CompleteInvoiceCommand}" 
-                        Background="#9B59B6" 
-                        Foreground="White" 
-                        Padding="10,6" 
-                        FontSize="11" 
-                        BorderThickness="0"
-                        Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+                <Button Content="فاتورة جديدة" Command="{Binding NewInvoiceCommand}" 
+                        Background="#2ECC71" Foreground="White" Padding="10,6" 
+                        FontSize="11" BorderThickness="0" Margin="0,0,5,0" 
+                        Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"
+                        ToolTip="إنشاء فاتورة جديدة"/>
+                <Button Content="حفظ الفاتورة" Command="{Binding SaveInvoiceCommand}" 
+                        Background="#3498DB" Foreground="White" Padding="10,6" 
+                        FontSize="11" BorderThickness="0" Margin="0,0,5,0" 
+                        Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                        ToolTip="حفظ الفاتورة الحالية"/>
+                <Button Content="إلغاء" Command="{Binding CancelCommand}" 
+                        Background="#95A5A6" Foreground="White" Padding="10,6" 
+                        FontSize="11" BorderThickness="0" Margin="0,0,5,0" 
+                        Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                        ToolTip="إلغاء التعديلات"/>
+                <Button Content="إكمال الفاتورة" Command="{Binding CompleteInvoiceCommand}" 
+                        Background="#9B59B6" Foreground="White" Padding="10,6" 
+                        FontSize="11" BorderThickness="0" 
+                        Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"
+                        ToolTip="إكمال الفاتورة وإنشاء PDF"/>
             </StackPanel>
         </Border>
 
-        <!-- Main Content Area -->
+        <!-- المحتوى الرئيسي -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="380"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left: Invoice Items and Invoices List -->
+            <!-- القسم الأيسر -->
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
@@ -239,110 +232,96 @@
                     <RowDefinition Height="180"/>
                 </Grid.RowDefinitions>
 
-                <!-- Invoice Items Grid -->
-                <Border Grid.Row="0" Margin="10,10,10,5" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3">
+                <!-- بنود الفاتورة -->
+                <Border Grid.Row="0" Margin="10,10,10,5" Background="White" 
+                        BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-
                         <Border Grid.Row="0" Background="#34495E" Padding="8">
-                            <TextBlock Text="بنود الفاتورة" 
-                                       Foreground="White" 
-                                       FontSize="13" 
-                                       FontWeight="Bold" 
-                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="بنود الفاتورة" Foreground="White" 
+                                       FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
                         </Border>
-
-                        <ScrollViewer Grid.Row="1" 
-                                     VerticalScrollBarVisibility="Auto"
-                                     HorizontalScrollBarVisibility="Auto"
-                                     CanContentScroll="True">
-                            <DataGrid 
-                                  x:Name="InvoiceItemsDataGrid"
-                                  ItemsSource="{Binding InvoiceItems}"
-                                  SelectedItem="{Binding SelectedInvoiceItem, Mode=TwoWay}"
-                                  AutoGenerateColumns="False"
-                                  RowHeight="32"
-                                  CanUserAddRows="False"
-                                  CanUserDeleteRows="False"
-                                  IsReadOnly="True"
-                                  HorizontalGridLinesBrush="Transparent"
-                                  VerticalGridLinesBrush="Transparent"
-                                  GridLinesVisibility="None"
-                                  BorderThickness="0"
-                                  Style="{StaticResource NoPaddingDataGrid}"
-                                  ColumnHeaderHeight="32">
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" 
+                                      HorizontalScrollBarVisibility="Auto" CanContentScroll="True">
+                            <DataGrid x:Name="InvoiceItemsDataGrid" 
+                                      ItemsSource="{Binding InvoiceItems}" 
+                                      SelectedItem="{Binding SelectedInvoiceItem, Mode=TwoWay}" 
+                                      AutoGenerateColumns="False" RowHeight="32" 
+                                      CanUserAddRows="False" CanUserDeleteRows="False" 
+                                      IsReadOnly="True" Style="{StaticResource NoPaddingDataGrid}" 
+                                      ColumnHeaderHeight="32">
                                 <DataGrid.Columns>
-                                    <!-- عمود اسم المنتج يأخذ المساحة المتبقية -->
                                     <DataGridTextColumn Header="اسم المنتج" 
                                                         Binding="{Binding Product.Name}" 
-                                                        Width="358"
-                                                        MinWidth="150"
+                                                        Width="355" MinWidth="150" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightAlignedCellStyle}"/>
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource RightAlignedCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="السعر الأصلي" 
                                                         Binding="{Binding OriginalUnitPrice, StringFormat='0.00'}" 
-                                                        Width="100"
+                                                        Width="93" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}"/>
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="مكسب %" 
-                                                        Binding="{Binding ItemProfitMarginPercentage, StringFormat='0.00'}" 
-                                                        Width="80"
+                                                        Binding="{Binding EffectiveProfitMarginPercentage, StringFormat='0.00'}" 
+                                                        Width="70" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}">
                                                 <Setter Property="FontWeight" Value="Bold"/>
+                                                <Setter Property="Foreground" Value="#27AE60"/>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="السعر بعد المكسب" 
                                                         Binding="{Binding UnitPrice, StringFormat='0.00'}" 
-                                                        Width="120"
+                                                        Width="110" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}">
                                                 <Setter Property="FontWeight" Value="Bold"/>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="الكمية" 
                                                         Binding="{Binding Quantity, StringFormat='0.00'}" 
-                                                        Width="70"
+                                                        Width="60" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}"/>
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="خصم %" 
                                                         Binding="{Binding DiscountPercentage, StringFormat='0.00'}" 
-                                                        Width="80"
+                                                        Width="60" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}">
                                                 <Setter Property="FontWeight" Value="Bold"/>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
-                                    <DataGridTextColumn Header="الإجمالي" 
+                                    <DataGridTextColumn Header="الإجمالي بعد مكسب الفاتورة" 
                                                         Binding="{Binding LineTotal, StringFormat='0.00'}" 
-                                                        Width="100"
+                                                        Width="160" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}">
                                                 <Setter Property="FontWeight" Value="Bold"/>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
@@ -353,419 +332,540 @@
                     </Grid>
                 </Border>
 
-                <!-- Action Buttons for Items -->
-                <Border Grid.Row="1" Background="#F8F9FA" Padding="8" BorderThickness="0,1,0,0" BorderBrush="#E0E0E0" Margin="10,0,10,10">
+                <!-- أزرار التحكم في البنود -->
+                <Border Grid.Row="1" Background="#F8F9FA" Padding="8" 
+                        BorderThickness="0,1,0,0" BorderBrush="#E0E0E0" 
+                        Margin="10,0,10,10">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button Content="🗑️ حذف منتج" 
-                                Command="{Binding DeleteItemCommand}" 
-                                Background="#E74C3C" 
-                                Foreground="White" 
-                                Padding="8,5" 
-                                FontSize="10" 
-                                BorderThickness="0" 
-                                Margin="0,0,5,0"
-                                IsEnabled="{Binding SelectedInvoiceItem, Converter={StaticResource NotNullConverter}}"
+                        <Button Content="🗑️ حذف منتج" Command="{Binding DeleteItemCommand}" 
+                                Background="#E74C3C" Foreground="White" Padding="8,5" 
+                                FontSize="10" BorderThickness="0" Margin="0,0,5,0" 
+                                IsEnabled="{Binding SelectedInvoiceItem, Converter={StaticResource NotNullConverter}}" 
                                 ToolTip="حذف المنتج المحدد" Height="26" Width="188"/>
                     </StackPanel>
                 </Border>
 
-                <!-- Invoices List -->
-                <Border Grid.Row="2" Margin="10,5,10,10" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3">
+                <!-- الفواتير المسودة -->
+                <Border Grid.Row="2" Margin="10,5,10,10" Background="White" 
+                        BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-
-                        <Border Grid.Row="0" Background="#34495E" Padding="8" Margin="0,-5,0,5">
-                            <TextBlock Text="الفواتير المسودة" 
-                                       Foreground="White" 
-                                       FontSize="13" 
-                                       FontWeight="Bold" 
-                                       HorizontalAlignment="Center"/>
+                        <Border Grid.Row="0" Background="#34495E" Padding="8" 
+                                Margin="0,-5,0,0">
+                            <TextBlock Text="الفواتير المسودة" Foreground="White" 
+                                       FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
                         </Border>
-
-                        <ScrollViewer Grid.Row="1" 
-                                     VerticalScrollBarVisibility="Auto"
-                                     HorizontalScrollBarVisibility="Auto"
-                                     CanContentScroll="True">
-                            <DataGrid 
-                                  x:Name="InvoicesDataGrid"
-                                  ItemsSource="{Binding Invoices}"
-                                  SelectedItem="{Binding SelectedInvoiceFromList, Mode=TwoWay}"
-                                  AutoGenerateColumns="False"
-                                  RowHeight="32"
-                                  CanUserAddRows="False"
-                                  CanUserDeleteRows="False"
-                                  IsReadOnly="True"
-                                  HorizontalGridLinesBrush="Transparent"
-                                  VerticalGridLinesBrush="Transparent"
-                                  GridLinesVisibility="None"
-                                  BorderThickness="0"
-                                  Style="{StaticResource NoPaddingDataGrid}"
-                                  ColumnHeaderHeight="32">
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" 
+                                      HorizontalScrollBarVisibility="Auto" CanContentScroll="True">
+                            <DataGrid x:Name="InvoicesDataGrid" 
+                                      ItemsSource="{Binding Invoices}" 
+                                      SelectedItem="{Binding SelectedInvoiceFromList, Mode=TwoWay}" 
+                                      AutoGenerateColumns="False" RowHeight="32" 
+                                      CanUserAddRows="False" CanUserDeleteRows="False" 
+                                      IsReadOnly="True" Style="{StaticResource NoPaddingDataGrid}" 
+                                      ColumnHeaderHeight="32">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="رقم" 
                                                         Binding="{Binding Id}" 
-                                                        Width="60"
+                                                        Width="60" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}"/>
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
-                                    <!-- عمود العميل يأخذ المساحة المتبقية -->
                                     <DataGridTextColumn Header="العميل" 
                                                         Binding="{Binding Customer.Name}" 
-                                                        Width="198"
-                                                        MinWidth="120"
+                                                        Width="198" MinWidth="120" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightAlignedCellStyle}"/>
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource RightAlignedCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="التاريخ" 
                                                         Binding="{Binding InvoiceDate, StringFormat='yyyy/MM/dd'}" 
-                                                        Width="100"
+                                                        Width="100" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}"/>
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="المنتجات" 
                                                         Binding="{Binding Items.Count}" 
-                                                        Width="80"
+                                                        Width="80" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}"/>
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="الإجمالي" 
                                                         Binding="{Binding TotalAmount, StringFormat='0.00'}" 
-                                                        Width="110"
+                                                        Width="110" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}"/>
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="خصم %" 
                                                         Binding="{Binding InvoiceDiscountPercentage, StringFormat='0.00'}" 
-                                                        Width="80"
+                                                        Width="80" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}">
                                                 <Setter Property="FontWeight" Value="Bold"/>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="مكسب %" 
                                                         Binding="{Binding ProfitMarginPercentage, StringFormat='0.00'}" 
-                                                        Width="80"
+                                                        Width="80" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}">
                                                 <Setter Property="FontWeight" Value="Bold"/>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTextColumn Header="النهائي" 
                                                         Binding="{Binding FinalAmount, StringFormat='0.00'}" 
-                                                        Width="110"
+                                                        Width="110" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                            <Style TargetType="TextBlock" 
+                                                   BasedOn="{StaticResource CenteredCellStyle}">
                                                 <Setter Property="FontWeight" Value="Bold"/>
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-
                                     <DataGridTemplateColumn Header="الحالة" 
                                                             Width="90" 
                                                             HeaderStyle="{StaticResource CenteredHeaderStyle}">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Status, Converter={StaticResource StatusToStringConverter}}" 
-                                                           Foreground="{Binding Status, Converter={StaticResource StatusToColorConverter}}"
-                                                           FontWeight="Bold"
-                                                           VerticalAlignment="Center"
-                                                           HorizontalAlignment="Center"
-                                                           TextAlignment="Center"
-                                                           Margin="0"/>
+                                                           Foreground="{Binding Status, Converter={StaticResource StatusToColorConverter}}" 
+                                                           FontWeight="Bold" VerticalAlignment="Center" 
+                                                           HorizontalAlignment="Center" TextAlignment="Center" Margin="0"/>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </ScrollViewer>
-
-                        <!-- Action Buttons for Invoices -->
-                        <Border Grid.Row="2" Background="#F8F9FA" Padding="8" BorderThickness="0,1,0,0" BorderBrush="#E0E0E0">
+                        <Border Grid.Row="2" Background="#F8F9FA" Padding="8" 
+                                BorderThickness="0,1,0,0" BorderBrush="#E0E0E0">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <!-- زر تعديل الجديد (يدمج التحديث والتعديل) -->
-                                <Button Content="تعديل" 
-                                        Command="{Binding EditInvoiceCommand}" 
-                                        Background="#F39C12" 
-                                        Foreground="White" 
-                                        FontWeight="Bold"
-                                        Padding="8,5" 
-                                        FontSize="12" 
-                                        BorderThickness="0" 
-                                        Margin="0,0,5,0"
-                                        IsEnabled="{Binding SelectedInvoiceFromList, Converter={StaticResource NotNullConverter}}"
-                                        Height="29" Width="58"
-                                        ToolTip="تحديث البيانات وفتح للتحرير"/>
-
-                                <Button Content="إلغاء" 
-                                        Command="{Binding CancelInvoiceCommand}" 
-                                        Background="#E74C3C" 
-                                        Foreground="White" 
-                                        Padding="8,5" 
-                                        FontWeight="Bold"
-                                        FontSize="12" 
-                                        BorderThickness="0" 
-                                        Margin="0,0,5,0"
-                                        IsEnabled="{Binding SelectedInvoiceFromList, Converter={StaticResource NotNullConverter}}" Width="58"/>
-
-                                <Button Content="حذف" 
-                                        Command="{Binding DeleteInvoiceCommand}" 
-                                        Background="#95A5A6" 
-                                        Foreground="White" 
-                                        Padding="8,5" 
-                                        FontSize="12" 
-                                        FontWeight="Bold"
-                                        BorderThickness="0"
-                                        IsEnabled="{Binding SelectedInvoiceFromList, Converter={StaticResource NotNullConverter}}" Width="58"/>
+                                <Button Content="تعديل" Command="{Binding EditInvoiceCommand}" 
+                                        Background="#F39C12" Foreground="White" FontWeight="Bold" 
+                                        Padding="8,5" FontSize="12" BorderThickness="0" 
+                                        Margin="0,0,5,0" 
+                                        IsEnabled="{Binding SelectedInvoiceFromList, Converter={StaticResource NotNullConverter}}" 
+                                        Height="29" Width="58" ToolTip="تحديث البيانات وفتح للتحرير"/>
+                                <Button Content="إلغاء" Command="{Binding CancelInvoiceCommand}" 
+                                        Background="#E74C3C" Foreground="White" Padding="8,5" 
+                                        FontWeight="Bold" FontSize="12" BorderThickness="0" 
+                                        Margin="0,0,5,0" 
+                                        IsEnabled="{Binding SelectedInvoiceFromList, Converter={StaticResource NotNullConverter}}" 
+                                        Width="58" ToolTip="إلغاء الفاتورة المحددة"/>
+                                <Button Content="حذف" Command="{Binding DeleteInvoiceCommand}" 
+                                        Background="#95A5A6" Foreground="White" Padding="8,5" 
+                                        FontSize="12" FontWeight="Bold" BorderThickness="0" 
+                                        IsEnabled="{Binding SelectedInvoiceFromList, Converter={StaticResource NotNullConverter}}" 
+                                        Width="58" ToolTip="حذف الفاتورة المحددة"/>
                             </StackPanel>
                         </Border>
                     </Grid>
                 </Border>
             </Grid>
 
-            <!-- Right: Add Item Form and Summary -->
+            <!-- القسم الأيمن - المعلومات والملخص -->
             <Border Grid.Column="1" Margin="10,0,10,10" Background="#F8F9FA" Padding="10">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" 
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalAlignment="Stretch">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                    <!-- Add Item Form -->
-                    <Border Grid.Row="0" Background="White" Padding="12" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Margin="0,0,0,10">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="إضافة منتج جديد" FontSize="15" FontWeight="Bold" Foreground="#2C3E50" Margin="0,0,0,12"/>
-
-                            <!-- Customer Selection -->
-                            <Grid Grid.Row="1" Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="العميل:" Foreground="#2C3E50" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <ComboBox 
-                                         x:Name="CustomerComboBox"
-                                         ItemsSource="{Binding FilteredCustomersView}"
-                                         SelectedItem="{Binding SelectedCustomer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         IsEditable="True"
-                                         Text="{Binding CustomerSearchText, UpdateSourceTrigger=PropertyChanged}"
-                                         IsEnabled="{Binding IsEditMode}"
-                                         Foreground="#2C3E50" 
-                                         FontSize="14" 
-                                         Padding="6"
-                                         TextSearch.TextPath="Name"
-                                         SelectedValuePath="Id" Grid.Column="1">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="0,0,8,0" FontSize="11"/>
-                                                <TextBlock Text="{Binding PhoneNumber}" Foreground="#7F8C8D" FontSize="10"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
+                        <!-- تاريخ الفاتورة -->
+                        <Border Grid.Row="0" Background="White" Padding="10" 
+                                BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" 
+                                Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="تاريخ الفاتورة" 
+                                           FontSize="14" FontWeight="Bold" 
+                                           Foreground="#2C3E50" Margin="0,0,0,8"/>
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="التاريخ:" 
+                                               Foreground="#2C3E50" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <DatePicker Grid.Column="1" 
+                                                SelectedDate="{Binding SelectedInvoiceDate, UpdateSourceTrigger=PropertyChanged}" 
+                                                IsEnabled="{Binding IsEditMode}" Foreground="#2C3E50" 
+                                                FontSize="12" Padding="5" Margin="0,0,0,-5"/>
+                                </Grid>
                             </Grid>
+                        </Border>
 
-                            <!-- Product Selection -->
-                            <Grid Grid.Row="2" Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" MinWidth="50"/>
-                                    <ColumnDefinition/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="المنتج:" Foreground="#2C3E50" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Height="25"/>
-                                <ComboBox 
-                                         x:Name="ProductComboBox"
-                                         ItemsSource="{Binding FilteredProductsView}"
-                                         SelectedItem="{Binding SelectedProduct, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         IsEditable="True"
-                                         Text="{Binding ProductSearchText, UpdateSourceTrigger=PropertyChanged}"
-                                         IsEnabled="{Binding IsEditMode}"
-                                         Foreground="#2C3E50" 
-                                         FontSize="14" 
-                                         Padding="6"
-                                         TextSearch.TextPath="Name"
-                                         SelectedValuePath="Id" Grid.Column="1">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="0,0,8,0" FontSize="11"/>
-                                                <TextBlock Text="{Binding Price, StringFormat='0.00'}" Foreground="#27AE60" Margin="0,0,8,0" FontSize="10"/>
-                                                <TextBlock Text="{Binding Unit}" Foreground="#7F8C8D" FontSize="10"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
+                        <!-- إضافة منتج جديد -->
+                        <Border Grid.Row="1" Background="White" Padding="10" 
+                                BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" 
+                                Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="إضافة منتج جديد" 
+                                           FontSize="14" FontWeight="Bold" 
+                                           Foreground="#2C3E50" Margin="0,0,0,10"/>
+
+                                <!-- العميل -->
+                                <Grid Grid.Row="1" Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="العميل:" 
+                                               Foreground="#2C3E50" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="CustomerComboBox" 
+                                              ItemsSource="{Binding FilteredCustomersView}" 
+                                              SelectedItem="{Binding SelectedCustomer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                              IsEditable="True" 
+                                              Text="{Binding CustomerSearchText, UpdateSourceTrigger=PropertyChanged}" 
+                                              IsEnabled="{Binding IsEditMode}" 
+                                              Foreground="#2C3E50" FontSize="12" 
+                                              Padding="5" Height="28" 
+                                              TextSearch.TextPath="Name" 
+                                              SelectedValuePath="Id" 
+                                              Grid.Column="1">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" 
+                                                               FontWeight="Bold" 
+                                                               Margin="0,0,8,0" FontSize="11"/>
+                                                    <TextBlock Text="{Binding PhoneNumber}" 
+                                                               Foreground="#7F8C8D" FontSize="10"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- المنتج -->
+                                <Grid Grid.Row="2" Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="المنتج:" 
+                                               Foreground="#2C3E50" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="ProductComboBox" 
+                                              ItemsSource="{Binding FilteredProductsView}" 
+                                              SelectedItem="{Binding SelectedProduct, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                              IsEditable="True" 
+                                              Text="{Binding ProductSearchText, UpdateSourceTrigger=PropertyChanged}" 
+                                              IsEnabled="{Binding IsEditMode}" 
+                                              Foreground="#2C3E50" FontSize="12" 
+                                              Padding="5" Height="28" 
+                                              TextSearch.TextPath="Name" 
+                                              SelectedValuePath="Id" 
+                                              Grid.Column="1" Margin="4,0,0,0">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" 
+                                                               FontWeight="Bold" 
+                                                               Margin="0,0,8,0" FontSize="11"/>
+                                                    <TextBlock Text="{Binding Price, StringFormat='0.00'}" 
+                                                               Foreground="#27AE60" 
+                                                               Margin="0,0,8,0" FontSize="10"/>
+                                                    <TextBlock Text="{Binding Unit}" 
+                                                               Foreground="#7F8C8D" FontSize="10"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- الكمية -->
+                                <Grid Grid.Row="3" Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="الكمية:" 
+                                               Foreground="#2C3E50" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Grid.Column="1" Padding="5" FontSize="12" 
+                                             Text="{Binding ProductQuantity, UpdateSourceTrigger=PropertyChanged}" 
+                                             IsEnabled="{Binding IsEditMode}" Height="28" Margin="3,0,0,0"/>
+                                </Grid>
+
+                                <!-- مكسب المنتج -->
+                                <Grid Grid.Row="4" Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="مكسب المنتج:" 
+                                               Foreground="#2C3E50" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Grid.Column="1" Padding="6" FontSize="12" 
+                                             Text="{Binding ProductProfitMargin}" 
+                                             Height="28" IsEnabled="{Binding IsEditMode}"/>
+                                    <TextBlock Grid.Column="2" Text="%" 
+                                               Foreground="#7F8C8D" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                </Grid>
+
+                                <!-- خصم المنتج -->
+                                <Grid Grid.Row="5" Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="خصم المنتج:" 
+                                               Foreground="#2C3E50" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Grid.Column="1" Padding="6" FontSize="12" 
+                                             Text="{Binding ProductDiscount}" 
+                                             Height="28" IsEnabled="{Binding IsEditMode}" Margin="8,0,0,0"/>
+                                    <TextBlock Grid.Column="2" Text="%" 
+                                               Foreground="#7F8C8D" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                </Grid>
+
+                                <!-- زر الإضافة -->
+                                <Button Grid.Row="6" Content="➕ إضافة المنتج" 
+                                        Command="{Binding AddItemCommand}" 
+                                        Background="#27AE60" Foreground="White" 
+                                        Padding="10,5" FontSize="13" BorderThickness="0" 
+                                        HorizontalAlignment="Stretch" Height="32"
+                                        IsEnabled="{Binding IsEditMode}"/>
                             </Grid>
+                        </Border>
 
-                            <!-- Quantity -->
-                            <Grid Grid.Row="3" Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" MinWidth="51"/>
-                                    <ColumnDefinition/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="الكمية:" Foreground="#2C3E50" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Height="19"/>
-                                <TextBox Padding="6" FontSize="11" Text="{Binding ProductQuantity, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsEditMode}" Grid.ColumnSpan="2" Margin="50,0,0,0"/>
+                        <!-- ملخص الفاتورة التفصيلي - التصميم المحسن -->
+                        <Border Grid.Row="2" Background="White" Padding="10" 
+                                BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                                MinHeight="400">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- العنوان -->
+                                <TextBlock Grid.Row="0" Text="📊 ملخص الفاتورة التفصيلي" 
+                                           FontSize="14" FontWeight="Bold" 
+                                           Foreground="#2C3E50" Margin="0,0,0,12" 
+                                           HorizontalAlignment="Center"/>
+
+                                <!-- الخط الفاصل -->
+                                <Rectangle Grid.Row="1" Height="1" Fill="#34495E" 
+                                           Margin="0,0,0,12"/>
+
+                                <!-- مكسب الفاتورة -->
+                                <Grid Grid.Row="2" Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="📈 مكسب الفاتورة:" 
+                                               Foreground="#2C3E50" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Grid.Column="1" 
+                                             Style="{StaticResource CompactTextBox}"
+                                             Text="{Binding ProfitMarginPercentage, UpdateSourceTrigger=PropertyChanged}" 
+                                             IsEnabled="{Binding IsEditMode}" 
+                                             Background="#F0F4F8"/>
+                                    <TextBlock Grid.Column="2" Text="%" 
+                                               Foreground="#7F8C8D" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                </Grid>
+
+                                <!-- خصم الفاتورة -->
+                                <Grid Grid.Row="3" Margin="0,0,0,15">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="🏷️ خصم الفاتورة:" 
+                                               Foreground="#2C3E50" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Grid.Column="1" 
+                                             Style="{StaticResource CompactTextBox}"
+                                             Text="{Binding InvoiceDiscountPercentage, UpdateSourceTrigger=PropertyChanged}" 
+                                             IsEnabled="{Binding IsEditMode}" 
+                                             Background="#F0F4F8" Margin="8,0,0,0"/>
+                                    <TextBlock Grid.Column="2" Text="%" 
+                                               Foreground="#7F8C8D" FontSize="12" 
+                                               VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                </Grid>
+
+                                <!-- الخط الفاصل -->
+                                <Rectangle Grid.Row="4" Height="1" Fill="#34495E" 
+                                           Margin="0,0,0,12"/>
+
+                                <!-- التفاصيل المالية في StackPanel مع ScrollViewer -->
+                                <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto" 
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              MaxHeight="300">
+                                    <StackPanel>
+                                        <!-- الإجماليات الأساسية -->
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="100"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="إجمالي المنتجات:" 
+                                                       Style="{StaticResource SummaryItemStyle}" 
+                                                       />
+                                            <TextBlock Grid.Column="1" 
+                                                       Text="{Binding TotalBeforeDiscount, StringFormat='0.00'}" 
+                                                       Style="{StaticResource SummaryValueStyle}" 
+                                                       />
+                                        </Grid>
+
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="100"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="مكسب المنتجات:" 
+                                                       Style="{StaticResource SummaryItemStyle}" 
+                                                       Foreground="#27AE60"/>
+                                            <TextBlock Grid.Column="1" 
+                                                       Text="{Binding TotalProductProfit, StringFormat='+0.00'}" 
+                                                       Style="{StaticResource SummaryValueStyle}" 
+                                                       Foreground="#27AE60"/>
+                                        </Grid>
+
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="100"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="خصم المنتجات:" 
+                                                       Style="{StaticResource SummaryItemStyle}" 
+                                                       Foreground="#E74C3C"/>
+                                            <TextBlock Grid.Column="1" 
+                                                       Text="{Binding TotalItemsDiscount, StringFormat='-0.00'}" 
+                                                       Style="{StaticResource SummaryValueStyle}" 
+                                                       Foreground="#E74C3C"/>
+                                        </Grid>
+
+                                        <!-- خط فاصل -->
+                                        <Rectangle Height="1" Fill="#BDC3C7" Margin="0,0,0,8"/>
+
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="100"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="المجموع:" 
+                                                       FontSize="13" FontWeight="Bold" 
+                                                       VerticalAlignment="Center" 
+                                                       />
+                                            <TextBlock Grid.Column="1" 
+                                                       Text="{Binding SubTotalAfterItemsDiscount, StringFormat='0.00'}" 
+                                                       FontSize="13" FontWeight="Bold" 
+                                                       Style="{StaticResource SummaryValueStyle}" 
+                                                       />
+                                        </Grid>
+
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="100"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="مكسب الفاتورة:" 
+                                                       Style="{StaticResource SummaryItemStyle}" 
+                                                       Foreground="#27AE60"/>
+                                            <TextBlock Grid.Column="1" 
+                                                       Text="{Binding TotalInvoiceProfit, StringFormat='+0.00'}" 
+                                                       Style="{StaticResource SummaryValueStyle}" 
+                                                       Foreground="#27AE60"/>
+                                        </Grid>
+
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="100"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="خصم الفاتورة:" 
+                                                       Style="{StaticResource SummaryItemStyle}" 
+                                                       Foreground="#E74C3C"/>
+                                            <TextBlock Grid.Column="1" 
+                                                       Text="{Binding InvoiceDiscountAmount, StringFormat='-0.00'}" 
+                                                       Style="{StaticResource SummaryValueStyle}" 
+                                                       Foreground="#E74C3C"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </ScrollViewer>
+
+                                <!-- الإجمالي النهائي -->
+                                <Border Grid.Row="6" Margin="0,12,0,0" 
+                                        Background="#34495E" Padding="10,8" CornerRadius="4">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="💰 الإجمالي النهائي:" 
+                                                   FontSize="14" FontWeight="Bold" 
+                                                   Foreground="White"/>
+                                        <TextBlock Grid.Column="1" 
+                                                   Text="{Binding FinalAmountCalculated, StringFormat='0.00'}" 
+                                                   FontSize="14" FontWeight="Bold" 
+                                                   Foreground="#2ECC71" 
+                                                   Margin="8,0,0,0"/>
+                                    </Grid>
+                                </Border>
                             </Grid>
-
-                            <!-- Product Profit Margin -->
-                            <Grid Grid.Row="4" Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="مكسب المنتج:" Foreground="#2C3E50" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBox Grid.Column="1" Padding="6" FontSize="14" Text="{Binding ProductProfitMargin}" IsEnabled="{Binding IsEditMode}"/>
-                                <TextBlock Grid.Column="2" Text="%" Foreground="#7F8C8D" FontSize="14" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                            </Grid>
-
-                            <!-- Product Discount -->
-                            <Grid Grid.Row="5" Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" MinWidth="89"/>
-                                    <ColumnDefinition/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="خصم المنتج:" Foreground="#2C3E50" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Height="19"/>
-                                <TextBox Grid.Column="1" Padding="6" FontSize="14" Text="{Binding ProductDiscount}" IsEnabled="{Binding IsEditMode}" Grid.ColumnSpan="2" Margin="0,0,13,0"/>
-                                <TextBlock Grid.Column="2" Text="%" Foreground="#7F8C8D" FontSize="14" VerticalAlignment="Center" Margin="4,0,0,0" Height="19"/>
-                            </Grid>
-
-                            <!-- Add Item Button -->
-                            <Button Grid.Row="6" 
-                                    Content="➕ إضافة المنتج" 
-                                    Command="{Binding AddItemCommand}" 
-                                    Background="#27AE60" 
-                                    Foreground="White" 
-                                    Padding="10,6" 
-                                    FontSize="14" 
-                                    BorderThickness="0"
-                                    HorizontalAlignment="Stretch"
-                                    IsEnabled="{Binding IsEditMode}"/>
-                        </Grid>
-                    </Border>
-
-                    <!-- Invoice Summary -->
-                    <Border Grid.Row="1" Background="White" Padding="12" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="ملخص الفاتورة" FontSize="15" FontWeight="Bold" Foreground="#2C3E50" Margin="0,0,0,12"/>
-
-                            <!-- Invoice Profit Margin -->
-                            <Grid Grid.Row="1" Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="مكسب الفاتورة:" Foreground="#2C3E50" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBox Grid.Column="1" Padding="6" FontSize="14" Text="{Binding ProfitMarginPercentage, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsEditMode}"/>
-                                <TextBlock Grid.Column="2" Text="%" Foreground="#7F8C8D" FontSize="14" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                            </Grid>
-
-                            <!-- Invoice Discount -->
-                            <Grid Grid.Row="2" Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="44.9"/>
-                                    <ColumnDefinition Width="42.447"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="خصم الفاتورة:" Foreground="#2C3E50" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Grid.ColumnSpan="2"/>
-                                <TextBox Grid.Column="2" Padding="6" FontSize="14" Text="{Binding InvoiceDiscountPercentage, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsEditMode}" Grid.ColumnSpan="2" Margin="8,0,13,0"/>
-                                <TextBlock Grid.Column="3" Text="%" Foreground="#7F8C8D" FontSize="14" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                            </Grid>
-
-                            <!-- Separator -->
-                            <Rectangle Grid.Row="3" Height="1" Fill="#E0E0E0" Margin="0,0,0,8"/>
-
-                            <!-- Summary Calculations -->
-                            <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="إجمالي الفاتورة:" FontSize="13" Foreground="#2C3E50" HorizontalAlignment="Left"/>
-                                <TextBlock Text="{Binding TotalBeforeDiscount, StringFormat='0.00'}" FontSize="13" FontWeight="Bold" Foreground="#2C3E50" HorizontalAlignment="Right" Margin="8,0,0,0"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="خصم المنتجات:" FontSize="13" Foreground="#2C3E50" HorizontalAlignment="Left"/>
-                                <TextBlock Text="{Binding TotalItemsDiscount, StringFormat='0.00'}" FontSize="13" FontWeight="Bold" Foreground="#F39C12" HorizontalAlignment="Right" Margin="8,0,0,0"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="المجموع بعد خصم المنتجات:" FontSize="13" Foreground="#2C3E50" HorizontalAlignment="Left"/>
-                                <TextBlock Text="{Binding SubTotalAfterItemsDiscount, StringFormat='0.00'}" FontSize="13" FontWeight="Bold" Foreground="#3498DB" HorizontalAlignment="Right" Margin="8,0,0,0"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,0,0,4">
-                                <TextBlock Text="خصم الفاتورة:" FontSize="13" Foreground="#2C3E50" HorizontalAlignment="Left"/>
-                                <TextBlock Text="{Binding InvoiceDiscountAmount, StringFormat='0.00'}" FontSize="13" FontWeight="Bold" Foreground="#E74C3C" HorizontalAlignment="Right" Margin="8,0,0,0"/>
-                            </StackPanel>
-
-                            <!-- Separator -->
-                            <Rectangle Grid.Row="8" Height="1" Fill="#E0E0E0" Margin="0,8,0,8"/>
-
-                            <!-- Final Amount -->
-                            <StackPanel Grid.Row="9" Orientation="Horizontal">
-                                <TextBlock Text="الإجمالي النهائي:" FontSize="14" FontWeight="Bold" Foreground="#2C3E50" HorizontalAlignment="Left"/>
-                                <TextBlock Text="{Binding FinalAmountCalculated, StringFormat='0.00'}" FontSize="14" FontWeight="Bold" Foreground="#27AE60" HorizontalAlignment="Right" Margin="8,0,0,0"/>
-                            </StackPanel>
-
-                            <!-- Total Profit -->
-                            <StackPanel Grid.Row="10" Orientation="Horizontal" Margin="0,8,0,0">
-                                <TextBlock Text="المكسب الكلي:" FontSize="14" FontWeight="Bold" Foreground="#2C3E50" HorizontalAlignment="Left"/>
-                                <TextBlock Text="{Binding TotalProfitAmount, StringFormat='0.00'}" FontSize="13" FontWeight="Bold" Foreground="#9B59B6" HorizontalAlignment="Right" Margin="8,0,0,0"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </Grid>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
             </Border>
         </Grid>
     </Grid>

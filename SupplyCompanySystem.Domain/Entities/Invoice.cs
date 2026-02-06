@@ -14,14 +14,15 @@ namespace SupplyCompanySystem.Domain.Entities
     {
         private int _customerId;
         private Customer _customer;
-        private DateTime _invoiceDate;
+        private DateTime _invoiceDate; // ✅ سيتم تعيينه من المستخدم
+        private DateTime _createdDate; // ✅ جديد: تاريخ إنشاء السجل
         private InvoiceStatus _status;
         private List<InvoiceItem> _items;
         private decimal _totalAmount;
         private decimal _finalAmount;
         private string _notes;
         private decimal _profitMarginPercentage;
-        private decimal _invoiceDiscountPercentage; // ✅ جديد: نسبة الخصم على الفاتورة كاملة
+        private decimal _invoiceDiscountPercentage;
 
         public int CustomerId
         {
@@ -57,6 +58,20 @@ namespace SupplyCompanySystem.Domain.Entities
                 if (_invoiceDate != value)
                 {
                     _invoiceDate = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        // ✅ جديد: تاريخ إنشاء السجل في قاعدة البيانات
+        public DateTime CreatedDate
+        {
+            get => _createdDate;
+            set
+            {
+                if (_createdDate != value)
+                {
+                    _createdDate = value;
                     OnPropertyChanged();
                 }
             }
@@ -127,7 +142,6 @@ namespace SupplyCompanySystem.Domain.Entities
             }
         }
 
-        // نسبة المكسب على الفاتورة كاملة
         public decimal ProfitMarginPercentage
         {
             get => _profitMarginPercentage;
@@ -141,7 +155,6 @@ namespace SupplyCompanySystem.Domain.Entities
             }
         }
 
-        // ✅ جديد: نسبة الخصم على الفاتورة كاملة
         public decimal InvoiceDiscountPercentage
         {
             get => _invoiceDiscountPercentage;
@@ -155,24 +168,31 @@ namespace SupplyCompanySystem.Domain.Entities
             }
         }
 
-        // ✅ جديد: حساب إجمالي الخصم على الفاتورة
         public decimal InvoiceDiscountAmount => (TotalAmount * InvoiceDiscountPercentage) / 100;
-
-        // ✅ جديد: حساب إجمالي المكسب من جميع المنتجات
         public decimal TotalProfitAmount => Items?.Sum(item => item.ItemProfitAmount) ?? 0;
 
         public Invoice()
         {
-            InvoiceDate = DateTime.Now;
+            InvoiceDate = DateTime.Now; // ✅ التاريخ الافتراضي هو اليوم
+            CreatedDate = DateTime.Now; // ✅ تاريخ الإنشاء الفعلي
             Status = InvoiceStatus.Draft;
             Items = new List<InvoiceItem>();
             ProfitMarginPercentage = 0;
-            InvoiceDiscountPercentage = 0; // ✅ قيمة افتراضية
+            InvoiceDiscountPercentage = 0;
         }
 
-        // ===== INotifyPropertyChanged =====
-        public event PropertyChangedEventHandler PropertyChanged;
+        // ✅ Constructor مع إمكانية تحديد تاريخ مخصص
+        public Invoice(DateTime invoiceDate)
+        {
+            InvoiceDate = invoiceDate;
+            CreatedDate = DateTime.Now;
+            Status = InvoiceStatus.Draft;
+            Items = new List<InvoiceItem>();
+            ProfitMarginPercentage = 0;
+            InvoiceDiscountPercentage = 0;
+        }
 
+        public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

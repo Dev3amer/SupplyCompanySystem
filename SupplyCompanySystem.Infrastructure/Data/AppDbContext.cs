@@ -96,6 +96,16 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .HasPrecision(5, 2)
                 .HasDefaultValue(0);
 
+            modelBuilder.Entity<Invoice>()
+                .Property(i => i.InvoiceDate)
+                .IsRequired();
+
+            // ✅ جديد: تاريخ إنشاء السجل
+            modelBuilder.Entity<Invoice>()
+                .Property(i => i.CreatedDate)
+                .IsRequired()
+                .HasDefaultValueSql("GETDATE()");
+
             // ✅ جديد: نسبة الخصم على الفاتورة كاملة
             modelBuilder.Entity<Invoice>()
                 .Property(i => i.InvoiceDiscountPercentage)
