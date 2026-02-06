@@ -11,9 +11,6 @@
         <local:NotNullToBoolConverter x:Key="NotNullConverter"/>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
-        <!-- ⭐ محول جديد للتحقق من حالة الفاتورة -->
-        <local:InvoiceStatusToBoolConverter x:Key="InvoiceStatusToBoolConverter"/>
-
         <!-- ✅ ستايل موحد للأزرار الأساسية -->
         <Style x:Key="PrimaryButtonStyle" TargetType="Button">
             <Setter Property="Foreground" Value="White"/>
@@ -33,12 +30,44 @@
             <Setter Property="Margin" Value="0,0,5,0"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
+
+        <!-- ✅ ستايل لأزرار Pagination -->
+        <Style x:Key="PaginationButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="Width" Value="90"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="10"/>
+        </Style>
+
+        <!-- ✅ ستايل لأزرار التصدير الأساسية -->
+        <Style x:Key="ExportButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="Width" Value="200"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- ✅ ستايل لعناصر Pagination -->
+        <Style x:Key="PaginationTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+        </Style>
+
+        <!-- ✅ ستايل لـ ComboBox حجم الصفحة -->
+        <Style x:Key="PageSizeComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Width" Value="70"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -101,16 +130,15 @@
                   SelectedItem="{Binding SelectedInvoice, Mode=TwoWay}"
                   AutoGenerateColumns="False"
                   RowHeight="40"
-                  Margin="15"
+                  Margin="15,10,15,10"
                   SelectionMode="Single"
                   SelectionUnit="FullRow"
                   PreviewMouseDown="DataGrid_PreviewMouseDown">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="رقم مسلسل" Binding="{Binding Id}" Width="100" IsReadOnly="True"/>
-                <DataGridTextColumn Header="اسم العميل" Binding="{Binding Customer.Name}" Width="150" IsReadOnly="True"/>
-                <DataGridTextColumn Header="التاريخ للعميل" Binding="{Binding InvoiceDate, StringFormat='yyyy/MM/dd'}" Width="120" IsReadOnly="True"/>
+                <DataGridTextColumn Header="اسم العميل" Binding="{Binding Customer.Name}" Width="170" IsReadOnly="True"/>
+                <DataGridTextColumn Header="التاريخ فى عرض الأسعار" Binding="{Binding InvoiceDate, StringFormat='yyyy/MM/dd'}" Width="140" IsReadOnly="True"/>
                 <DataGridTextColumn Header="تاريخ الإكمال" Width="140" IsReadOnly="True">
-                    <!-- ⭐ عمود جديد -->
                     <DataGridTextColumn.Binding>
                         <Binding Path="CompletedDate" StringFormat="yyyy/MM/dd HH:mm">
                             <Binding.TargetNullValue>
@@ -119,10 +147,10 @@
                         </Binding>
                     </DataGridTextColumn.Binding>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="الإجمالي قبل الخصم" Binding="{Binding TotalAmount, StringFormat='0.00'}" Width="150" IsReadOnly="True"/>
+                <DataGridTextColumn Header="الإجمالي قبل الخصم" Binding="{Binding TotalAmount, StringFormat='0.00'}" Width="140" IsReadOnly="True"/>
                 <DataGridTextColumn Header="قيمة الخصم" Binding="{Binding InvoiceDiscountAmount, StringFormat='0.00'}" Width="100" IsReadOnly="True"/>
-                <DataGridTextColumn Header="الإجمالي النهائي" Binding="{Binding FinalAmount, StringFormat='0.00'}" Width="150" IsReadOnly="True"/>
-                <DataGridTextColumn Header="الحالة" Width="100" IsReadOnly="True">
+                <DataGridTextColumn Header="الإجمالي النهائي" Binding="{Binding FinalAmount, StringFormat='0.00'}" Width="140" IsReadOnly="True"/>
+                <DataGridTextColumn Header="الحالة" Width="90" IsReadOnly="True">
                     <DataGridTextColumn.Binding>
                         <Binding Path="Status">
                             <Binding.Converter>
@@ -134,28 +162,113 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- ============ الأزرار ============ -->
-        <Border Grid.Row="2" Background="#F8F9FA" Padding="15" BorderThickness="0,1,0,0" BorderBrush="#E0E0E0">
+        <!-- ============ Pagination ============ -->
+        <Border Grid.Row="2" Background="#F8F9FA" Padding="10" 
+                BorderThickness="0,1,0,0" BorderBrush="#E0E0E0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- ✅ الأزرار الأساسية -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <!-- ⭐ معلومات Pagination اليسرى -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding TotalCountText}" 
+                               Style="{StaticResource PaginationTextStyle}"
+                               Margin="10,0"/>
 
-                    <!-- ⭐ زر إعادة إلى المسودة -->
+                    <!-- مؤشر التحميل -->
+                    <Border Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Margin="10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⏳ جاري التحميل..." 
+                                       Foreground="#3498DB"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ⭐ تحكم Pagination في الوسط -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <!-- First Page -->
+                    <Button Command="{Binding FirstPageCommand}" 
+                            Content="⏮️ الأولى" 
+                            ToolTip="الذهاب للصفحة الأولى"
+                            Style="{StaticResource PaginationButtonStyle}"/>
+
+                    <!-- Previous Page -->
+                    <Button Command="{Binding PreviousPageCommand}" 
+                            Content="◀️ السابق" 
+                            ToolTip="الصفحة السابقة"
+                            Style="{StaticResource PaginationButtonStyle}"
+                            Margin="5,0"/>
+
+                    <!-- Page Info -->
+                    <TextBlock Text="{Binding PaginationText}" 
+                               Style="{StaticResource PaginationTextStyle}"
+                               Margin="10,0"/>
+
+                    <!-- Next Page -->
+                    <Button Command="{Binding NextPageCommand}" 
+                            Content="▶️ التالي" 
+                            ToolTip="الصفحة التالية"
+                            Style="{StaticResource PaginationButtonStyle}"
+                            Margin="5,0"/>
+
+                    <!-- Last Page -->
+                    <Button Command="{Binding LastPageCommand}" 
+                            Content="⏭️ الأخيرة" 
+                            ToolTip="الذهاب للصفحة الأخيرة"
+                            Style="{StaticResource PaginationButtonStyle}"/>
+                </StackPanel>
+
+                <!-- ⭐ حجم الصفحة على اليمين -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <TextBlock Text="الحجم:" 
+                               Style="{StaticResource PaginationTextStyle}"
+                               Margin="0,0,5,0"/>
+
+                    <ComboBox ItemsSource="{Binding AvailablePageSizes}" 
+                              SelectedItem="{Binding PageSize}"
+                              Style="{StaticResource PageSizeComboBoxStyle}"
+                              Margin="0,0,10,0">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============ الأزرار الأساسية ============ -->
+        <Border Grid.Row="3" Background="#F8F9FA" Padding="15" BorderThickness="0,1,0,0" BorderBrush="#E0E0E0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ⭐ الأزرار الفردية على اليسار -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
+
+                    <!-- زر إعادة إلى المسودة -->
                     <Button Content="↩️ إعادة إلى المسودة" 
-                    Command="{Binding ReturnToDraftCommand}" 
-                    Margin="0,0,10,0">
+                            Command="{Binding ReturnToDraftCommand}" 
+                            Margin="0,0,10,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Setter Property="Width" Value="180"/>
+                                <Setter Property="Height" Value="36"/>
+                                <Setter Property="FontSize" Value="11"/>
                                 <Setter Property="Background" Value="#BDC3C7"/>
                                 <Setter Property="Cursor" Value="No"/>
                                 <Setter Property="Opacity" Value="0.6"/>
-                                <Setter Property="ToolTip" Value="حدد عرض أسعار مكتمل أولاً"/>
                                 <Setter Property="IsEnabled" Value="False"/>
+                                <Setter Property="ToolTip" Value="حدد عرض أسعار مكتمل أولاً"/>
                                 <Style.Triggers>
                                     <MultiDataTrigger>
                                         <MultiDataTrigger.Conditions>
@@ -175,96 +288,112 @@
                         </Button.Style>
                     </Button>
 
-                    <!-- ✅ زر تصدير PDF للفاتورة المحددة -->
-                    <Button Content="📄 تصدير عرض الأسعار المحدد PDF" 
-                    Command="{Binding ExportPdfCommand}" 
-                    Margin="0,0,10,0">
+                    <!-- زر تصدير PDF للفاتورة المحددة -->
+                    <Button Content="📄 تصدير عرض أسعار" 
+                            Command="{Binding ExportPdfCommand}" 
+                            Margin="0,0,10,0">
                         <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                            <Style TargetType="Button" BasedOn="{StaticResource ExportButtonStyle}">
                                 <Setter Property="Background" Value="#95A5A6"/>
                                 <Setter Property="Cursor" Value="No"/>
                                 <Setter Property="Opacity" Value="0.6"/>
                                 <Setter Property="IsEnabled" Value="False"/>
-                                <Setter Property="ToolTip" Value="حدد عرض أسعار أولاً"/>
+                                <Setter Property="ToolTip" Value="حدد عرض أسعار مكتمل أولاً"/>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedInvoice, Converter={StaticResource NotNullConverter}}" Value="True">
-                                        <Setter Property="Background" Value="#3498DB"/>
-                                        <Setter Property="Cursor" Value="Hand"/>
-                                        <Setter Property="Opacity" Value="1"/>
-                                        <Setter Property="IsEnabled" Value="True"/>
-                                        <Setter Property="ToolTip" Value="تصدير عرض الأسعار المحدد"/>
-                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding SelectedInvoice, Converter={StaticResource NotNullConverter}}" Value="True"/>
+                                            <Condition Binding="{Binding SelectedInvoice.Status}" Value="Completed"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <MultiDataTrigger.Setters>
+                                            <Setter Property="Background" Value="#3498DB"/>
+                                            <Setter Property="Cursor" Value="Hand"/>
+                                            <Setter Property="Opacity" Value="1"/>
+                                            <Setter Property="IsEnabled" Value="True"/>
+                                            <Setter Property="ToolTip" Value="تصدير عرض الأسعار المحدد (PDF)"/>
+                                        </MultiDataTrigger.Setters>
+                                    </MultiDataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
                     </Button>
 
-                    <!-- ✅ زر تصدير PDF بدون أسعار -->
-                    <Button Content="📄 تصدير بدون أسعار PDF" 
-                    Command="{Binding ExportPdfWithoutPricesCommand}" 
-                    Margin="0,0,10,0">
+                    <!-- زر تصدير PDF بدون أسعار -->
+                    <Button Content="📄 تصدير بدون أسعار" 
+                            Command="{Binding ExportPdfWithoutPricesCommand}" 
+                            Margin="0,0,10,0">
                         <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                            <Style TargetType="Button" BasedOn="{StaticResource ExportButtonStyle}">
                                 <Setter Property="Background" Value="#BDC3C7"/>
                                 <Setter Property="Cursor" Value="No"/>
                                 <Setter Property="Opacity" Value="0.6"/>
                                 <Setter Property="IsEnabled" Value="False"/>
-                                <Setter Property="ToolTip" Value="حدد عرض أسعار أولاً"/>
+                                <Setter Property="ToolTip" Value="حدد عرض أسعار مكتمل أولاً"/>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedInvoice, Converter={StaticResource NotNullConverter}}" Value="True">
-                                        <Setter Property="Background" Value="#F39C12"/>
-                                        <Setter Property="Cursor" Value="Hand"/>
-                                        <Setter Property="Opacity" Value="1"/>
-                                        <Setter Property="IsEnabled" Value="True"/>
-                                        <Setter Property="ToolTip" Value="تصدير عرض الأسعار بدون أسعار"/>
-                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding SelectedInvoice, Converter={StaticResource NotNullConverter}}" Value="True"/>
+                                            <Condition Binding="{Binding SelectedInvoice.Status}" Value="Completed"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <MultiDataTrigger.Setters>
+                                            <Setter Property="Background" Value="#F39C12"/>
+                                            <Setter Property="Cursor" Value="Hand"/>
+                                            <Setter Property="Opacity" Value="1"/>
+                                            <Setter Property="IsEnabled" Value="True"/>
+                                            <Setter Property="ToolTip" Value="تصدير عرض الأسعار المحدد بدون أسعار (PDF)"/>
+                                        </MultiDataTrigger.Setters>
+                                    </MultiDataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
                     </Button>
+                </StackPanel>
 
-                    <!-- ✅ زر تصدير Excel للفواتير المفلترة -->
-                    <Button Content="📥 تصدير كل عروض الأسعار Excel" 
-                    Command="{Binding ExportExcelCommand}" 
-                    Margin="0,0,10,0">
+                <!-- ⭐ أزرار التصدير الجماعية على اليمين -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+
+                    <!-- زر تصدير Excel للفواتير المفلترة -->
+                    <Button Content="📥 تصدير عروض الأسعار Excel" 
+                            Command="{Binding ExportExcelCommand}" 
+                            Margin="0,0,10,0">
                         <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                            <Style TargetType="Button" BasedOn="{StaticResource ExportButtonStyle}">
                                 <Setter Property="Background" Value="#27AE60"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Opacity" Value="1"/>
                                 <Setter Property="IsEnabled" Value="True"/>
-                                <Setter Property="ToolTip" Value="تصدير جميع الفواتير المفلترة إلى Excel"/>
+                                <Setter Property="ToolTip" Value="تصدير عروض الأسعار (سيطلب منك خيارات التصدير)"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding CompletedInvoices.Count}" Value="0">
                                         <Setter Property="Background" Value="#95A5A6"/>
                                         <Setter Property="Cursor" Value="No"/>
                                         <Setter Property="Opacity" Value="0.6"/>
                                         <Setter Property="IsEnabled" Value="False"/>
-                                        <Setter Property="ToolTip" Value="لا توجد فواتير للتصدير"/>
+                                        <Setter Property="ToolTip" Value="لا توجد عروض أسعار للتصدير"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
                     </Button>
 
-                    <!-- ✅ زر طباعة PDF للفواتير المفلترة -->
-                    <Button Content="🖨️ تصدير كل عروض الأسعار PDF" 
-                    Command="{Binding PrintPdfCommand}" 
-                    Margin="0,0,5,0">
+                    <!-- زر طباعة PDF للفواتير المفلترة -->
+                    <Button Content="🖨️ تصدير عروض الأسعار PDF" 
+                            Command="{Binding PrintPdfCommand}" 
+                            Margin="0,0,5,0">
                         <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                            <Style TargetType="Button" BasedOn="{StaticResource ExportButtonStyle}">
                                 <Setter Property="Background" Value="#9B59B6"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Opacity" Value="1"/>
                                 <Setter Property="IsEnabled" Value="True"/>
-                                <Setter Property="ToolTip" Value="طباعة جميع الفواتير المفلترة كملف PDF واحد"/>
+                                <Setter Property="ToolTip" Value="طباعة عروض الأسعار (سيطلب منك خيارات التصدير)"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding CompletedInvoices.Count}" Value="0">
                                         <Setter Property="Background" Value="#95A5A6"/>
                                         <Setter Property="Cursor" Value="No"/>
                                         <Setter Property="Opacity" Value="0.6"/>
                                         <Setter Property="IsEnabled" Value="False"/>
-                                        <Setter Property="ToolTip" Value="لا توجد فواتير للطباعة"/>
+                                        <Setter Property="ToolTip" Value="لا توجد عروض أسعار للطباعة"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

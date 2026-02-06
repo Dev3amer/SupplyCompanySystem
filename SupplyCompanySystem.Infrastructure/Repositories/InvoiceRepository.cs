@@ -13,7 +13,6 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
         {
             _context = context;
         }
-
         public List<Invoice> GetAll()
         {
             return _context.Invoices
@@ -39,20 +38,100 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 .FirstOrDefault(i => i.Id == id);
         }
 
-        // ⭐ دالة جديدة: الحصول على فواتير مكتملة مع إمكانية التعديل
-        public List<Invoice> GetCompletedInvoices()
+        // ⭐ دالة جديدة: الحصول على فواتير مكتملة مع Pagination
+        // ⭐ دالة جديدة: الحصول على فواتير مكتملة مع Pagination
+        public (List<Invoice> Invoices, int TotalCount) GetCompletedInvoicesPaged(
+            int pageNumber = 1,
+            int pageSize = 50,
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            int? customerId = null,
+            decimal? minAmount = null)
         {
-            return _context.Invoices
+            // ⭐ التحقق من أن رقم الصفحة إيجابي
+            if (pageNumber < 1) pageNumber = 1;
+
+            var query = BuildFilteredQuery(fromDate, toDate, customerId, minAmount);
+
+            // حساب العدد الإجمالي
+            int totalCount = query.Count();
+
+            // ⭐ التحقق من أن رقم الصفحة لا يتجاوز عدد الصفحات المتاحة
+            int maxPageNumber = (int)Math.Ceiling(totalCount / (double)pageSize);
+            if (maxPageNumber < 1) maxPageNumber = 1;
+
+            if (pageNumber > maxPageNumber)
+            {
+                pageNumber = maxPageNumber;
+            }
+
+            // تطبيق Pagination فقط إذا كان هناك بيانات
+            List<Invoice> invoices;
+
+            if (totalCount == 0)
+            {
+                invoices = new List<Invoice>();
+            }
+            else
+            {
+                // ⭐ التأكد من أن SKIP ليس سالباً
+                int skip = (pageNumber - 1) * pageSize;
+                if (skip < 0) skip = 0;
+
+                invoices = query
+                    .OrderByDescending(i => i.CompletedDate ?? i.InvoiceDate)
+                    .Skip(skip)
+                    .Take(pageSize)
+                    .ToList();
+            }
+
+            return (invoices, totalCount);
+        }
+
+        // ⭐ دالة جديدة: الحصول على جميع الفواتير المفلترة (للتحدير)
+        public List<Invoice> GetCompletedInvoicesFiltered(
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            int? customerId = null,
+            decimal? minAmount = null)
+        {
+            var query = BuildFilteredQuery(fromDate, toDate, customerId, minAmount);
+
+            return query
+                .OrderByDescending(i => i.CompletedDate ?? i.InvoiceDate)
+                .ToList();
+        }
+
+        // ⭐ دالة مساعدة لبناء استعلام الفلترة
+        private IQueryable<Invoice> BuildFilteredQuery(
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            int? customerId = null,
+            decimal? minAmount = null)
+        {
+            var query = _context.Invoices
                 .Include(i => i.Customer)
                 .Include(i => i.Items)
                 .ThenInclude(ii => ii.Product)
                 .Where(i => i.Status == InvoiceStatus.Completed)
-                .OrderByDescending(i => i.CompletedDate)
-                .ThenByDescending(i => i.InvoiceDate)
-                .ToList();
+                .AsQueryable();
+
+            // تطبيق الفلترة
+            if (fromDate.HasValue)
+                query = query.Where(i => i.InvoiceDate.Date >= fromDate.Value.Date);
+
+            if (toDate.HasValue)
+                query = query.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
+
+            if (customerId.HasValue && customerId.Value > 0)
+                query = query.Where(i => i.CustomerId == customerId.Value);
+
+            if (minAmount.HasValue && minAmount.Value > 0)
+                query = query.Where(i => i.FinalAmount >= minAmount.Value);
+
+            return query;
         }
 
-        // ⭐ دالة جديدة: إعادة فاتورة مكتملة إلى حالة المسودة
         public bool ReturnToDraft(int invoiceId)
         {
             var invoice = GetByIdWithItems(invoiceId);
@@ -60,7 +139,7 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 return false;
 
             invoice.Status = InvoiceStatus.Draft;
-            invoice.CompletedDate = null; // مسح تاريخ الإكمال
+            invoice.CompletedDate = null;
             _context.Invoices.Update(invoice);
             SaveChanges();
 

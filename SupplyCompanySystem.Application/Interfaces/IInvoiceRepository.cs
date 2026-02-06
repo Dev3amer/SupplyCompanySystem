@@ -8,9 +8,21 @@ namespace SupplyCompanySystem.Application.Interfaces
         Invoice GetById(int id);
         Invoice GetByIdWithItems(int id);
 
-        // ⭐ دوال جديدة
-        List<Invoice> GetCompletedInvoices();
-        bool ReturnToDraft(int invoiceId); // ⭐ إضافة هذه الدالة
+        (List<Invoice> Invoices, int TotalCount) GetCompletedInvoicesPaged(
+            int pageNumber = 1,
+            int pageSize = 50,
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            int? customerId = null,
+            decimal? minAmount = null);
+
+        List<Invoice> GetCompletedInvoicesFiltered(
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            int? customerId = null,
+            decimal? minAmount = null);
+
+        bool ReturnToDraft(int invoiceId);
 
         void Add(Invoice invoice);
         void Update(Invoice invoice);

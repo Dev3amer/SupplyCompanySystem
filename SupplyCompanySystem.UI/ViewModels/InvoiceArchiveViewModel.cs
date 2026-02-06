@@ -8,6 +8,7 @@ using SupplyCompanySystem.UI.Views;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace SupplyCompanySystem.UI.ViewModels
 {
@@ -25,6 +26,16 @@ namespace SupplyCompanySystem.UI.ViewModels
         private Customer _selectedCustomer;
         private string _minAmount;
 
+        // ⭐ خصائص Pagination الجديدة
+        private int _currentPage = 1;
+        private int _pageSize = 50;
+        private int _totalPages = 1;
+        private int _totalCount = 0;
+        private bool _isLoading = false;
+
+        // ⭐ قائمة أحجام الصفحات المتاحة
+        public List<int> AvailablePageSizes { get; } = new List<int> { 10, 25, 50, 100, 250 };
+
         public ObservableCollection<Invoice> CompletedInvoices
         {
             get => _completedInvoices;
@@ -32,7 +43,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _completedInvoices = value;
                 OnPropertyChanged(nameof(CompletedInvoices));
-                // ⭐ تحديث CanExecute للأزرار عند تغيير القائمة
                 ExportExcelCommand?.NotifyCanExecuteChanged();
                 PrintPdfCommand?.NotifyCanExecuteChanged();
             }
@@ -55,7 +65,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _selectedInvoice = value;
                 OnPropertyChanged(nameof(SelectedInvoice));
-                // ⭐ تحديث CanExecute للأزرار عند تغيير التحديد
                 ExportPdfCommand?.NotifyCanExecuteChanged();
                 ExportPdfWithoutPricesCommand?.NotifyCanExecuteChanged();
                 ReturnToDraftCommand?.NotifyCanExecuteChanged();
@@ -102,6 +111,105 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
+        // ⭐ خصائص Pagination
+        public int CurrentPage
+        {
+            get => _currentPage;
+            set
+            {
+                if (value < 1)
+                {
+                    _currentPage = 1;
+                }
+                else if (TotalPages > 0 && value > TotalPages)
+                {
+                    _currentPage = TotalPages;
+                }
+                else
+                {
+                    _currentPage = value;
+                }
+
+                OnPropertyChanged(nameof(CurrentPage));
+                OnPropertyChanged(nameof(PaginationText));
+                OnPropertyChanged(nameof(CanGoToFirstPage));
+                OnPropertyChanged(nameof(CanGoToPreviousPage));
+                OnPropertyChanged(nameof(CanGoToNextPage));
+                OnPropertyChanged(nameof(CanGoToLastPage));
+
+                if (!_isLoading)
+                    LoadData();
+            }
+        }
+
+        // ⭐ تحديث خاصية PageSize
+        public int PageSize
+        {
+            get => _pageSize;
+            set
+            {
+                _pageSize = value;
+                OnPropertyChanged(nameof(PageSize));
+
+                // ⭐ العودة للصفحة الأولى مع إعادة حساب Pagination
+                _currentPage = 1;
+                OnPropertyChanged(nameof(CurrentPage));
+                LoadData();
+            }
+        }
+
+        public int TotalCount
+        {
+            get => _totalCount;
+            private set
+            {
+                _totalCount = value;
+                OnPropertyChanged(nameof(TotalCount));
+                OnPropertyChanged(nameof(PaginationText));
+                OnPropertyChanged(nameof(TotalCountText));
+            }
+        }
+
+        public int TotalPages
+        {
+            get => _totalPages;
+            private set
+            {
+                _totalPages = value;
+                OnPropertyChanged(nameof(TotalPages));
+                OnPropertyChanged(nameof(PaginationText));
+                OnPropertyChanged(nameof(CanGoToLastPage));
+            }
+        }
+
+        public bool IsLoading
+        {
+            get => _isLoading;
+            set
+            {
+                _isLoading = value;
+                OnPropertyChanged(nameof(IsLoading));
+            }
+        }
+
+        // ⭐ خصائص التحكم في أزرار Pagination
+        public bool CanGoToFirstPage => CurrentPage > 1;
+        public bool CanGoToPreviousPage => CurrentPage > 1;
+        public bool CanGoToNextPage => CurrentPage < TotalPages;
+        public bool CanGoToLastPage => CurrentPage < TotalPages;
+
+        public string PaginationText =>
+            $"الصفحة {CurrentPage} من {TotalPages}";
+
+        public string TotalCountText =>
+            $"إجمالي الفواتير: {TotalCount} فاتورة";
+
+        // ⭐ أوامر Pagination الجديدة
+        public RelayCommand FirstPageCommand { get; }
+        public RelayCommand PreviousPageCommand { get; }
+        public RelayCommand NextPageCommand { get; }
+        public RelayCommand LastPageCommand { get; }
+
         public RelayCommand ExportExcelCommand { get; }
         public RelayCommand PrintPdfCommand { get; }
         public RelayCommand ExportPdfCommand { get; }
@@ -120,6 +228,19 @@ namespace SupplyCompanySystem.UI.ViewModels
 
             _fromDate = new DateTime(DateTime.Now.Year, 1, 1);
             _toDate = DateTime.Now;
+
+            // ⭐ تهيئة أوامر Pagination
+            FirstPageCommand = new RelayCommand(_ => CurrentPage = 1,
+                _ => CanGoToFirstPage);
+
+            PreviousPageCommand = new RelayCommand(_ => CurrentPage--,
+                _ => CanGoToPreviousPage);
+
+            NextPageCommand = new RelayCommand(_ => CurrentPage++,
+                _ => CanGoToNextPage);
+
+            LastPageCommand = new RelayCommand(_ => CurrentPage = TotalPages,
+                _ => CanGoToLastPage);
 
             // ⭐ تعديل CanExecute للأزرار
             ExportExcelCommand = new RelayCommand(_ => ExportFilteredInvoicesToExcel(),
@@ -146,26 +267,74 @@ namespace SupplyCompanySystem.UI.ViewModels
         {
             try
             {
-                var completedInvoices = _invoiceRepository.GetCompletedInvoices();
-                CompletedInvoices = new ObservableCollection<Invoice>(completedInvoices);
+                IsLoading = true;
 
-                var customers = _customerRepository.GetAll();
-                Customers.Clear();
-                Customers.Add(new Customer { Name = "الكل", Id = 0 });
-                foreach (var customer in customers.Where(c => c.IsActive))
+                // ⭐ حفظ رقم الصفحة الحالي قبل البحث
+                int currentPageBeforeSearch = CurrentPage;
+
+                // ⭐ تحويل بيانات الفلترة
+                int? customerId = (SelectedCustomer?.Id > 0) ? SelectedCustomer.Id : null;
+                decimal? minAmountValue = null;
+
+                if (!string.IsNullOrWhiteSpace(MinAmount) && decimal.TryParse(MinAmount, out decimal minAmount))
                 {
-                    Customers.Add(customer);
+                    minAmountValue = minAmount;
                 }
 
-                SelectedCustomer = Customers.FirstOrDefault();
+                // ⭐ استخدام الدالة الجديدة مع Pagination
+                var result = _invoiceRepository.GetCompletedInvoicesPaged(
+                    pageNumber: CurrentPage,
+                    pageSize: PageSize,
+                    fromDate: FromDate,
+                    toDate: ToDate,
+                    customerId: customerId,
+                    minAmount: minAmountValue);
 
-                // ⭐ تحديث حالة الأزرار بعد تحميل البيانات
+                CompletedInvoices = new ObservableCollection<Invoice>(result.Invoices);
+                TotalCount = result.TotalCount;
+
+                // ⭐ حساب عدد الصفحات مع التحقق من عدم القسمة على صفر
+                TotalPages = TotalCount > 0 ? (int)Math.Ceiling(TotalCount / (double)PageSize) : 1;
+
+                // ⭐ إذا كانت الصفحة الحالية أكبر من عدد الصفحات بعد البحث
+                // نعود للصفحة الأولى تلقائياً
+                if (CurrentPage > TotalPages && TotalPages > 0)
+                {
+                    CurrentPage = 1;
+                }
+
+                // ⭐ تحديث قائمة العملاء إذا كانت فارغة
+                if (Customers.Count == 0)
+                {
+                    var customers = _customerRepository.GetAll();
+                    Customers.Clear();
+                    Customers.Add(new Customer { Name = "الكل", Id = 0 });
+                    foreach (var customer in customers.Where(c => c.IsActive))
+                    {
+                        Customers.Add(customer);
+                    }
+
+                    SelectedCustomer = Customers.FirstOrDefault();
+                }
+
+                // ⭐ تحديث حالة الأزرار
                 ExportExcelCommand?.NotifyCanExecuteChanged();
                 PrintPdfCommand?.NotifyCanExecuteChanged();
+                FirstPageCommand?.NotifyCanExecuteChanged();
+                PreviousPageCommand?.NotifyCanExecuteChanged();
+                NextPageCommand?.NotifyCanExecuteChanged();
+                LastPageCommand?.NotifyCanExecuteChanged();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"خطأ في تحميل البيانات: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+
+                // ⭐ في حالة الخطأ، نعود للصفحة الأولى
+                CurrentPage = 1;
+            }
+            finally
+            {
+                IsLoading = false;
             }
         }
 
@@ -173,32 +342,22 @@ namespace SupplyCompanySystem.UI.ViewModels
         {
             try
             {
-                var completedInvoices = _invoiceRepository.GetCompletedInvoices();
+                // ⭐ العودة للصفحة الأولى عند البحث
+                CurrentPage = 1;
+                LoadData();
 
-                var filtered = completedInvoices.Where(i =>
-                    i.InvoiceDate.Date >= FromDate.Date &&
-                    i.InvoiceDate.Date <= ToDate.Date
-                ).ToList();
-
-                if (SelectedCustomer != null && SelectedCustomer.Id != 0)
+                if (TotalCount > 0)
                 {
-                    filtered = filtered.Where(i => i.Customer?.Id == SelectedCustomer.Id).ToList();
+                    MessageBox.Show($"تم العثور على {TotalCount} عرض أسعار", "نتيجة البحث",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show("لم يتم العثور على عروض أسعار", "نتيجة البحث",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
                 }
 
-                if (!string.IsNullOrWhiteSpace(MinAmount) && decimal.TryParse(MinAmount, out decimal minAmount))
-                {
-                    filtered = filtered.Where(i => i.FinalAmount >= minAmount).ToList();
-                }
-
-                CompletedInvoices = new ObservableCollection<Invoice>(
-                    filtered.OrderByDescending(i => i.CompletedDate ?? i.InvoiceDate)
-                );
-
-                // ✅ إلغاء التحديد بعد البحث
                 SelectedInvoice = null;
-
-                MessageBox.Show($"تم العثور على {filtered.Count} عرض أسعار", "نتيجة البحث",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -206,68 +365,139 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
+
         private void ResetFilter()
         {
-            FromDate = new DateTime(DateTime.Now.Year, 1, 1);
-            ToDate = DateTime.Now;
-            SelectedCustomer = Customers.FirstOrDefault();
-            MinAmount = string.Empty;
-            LoadData();
-            SelectedInvoice = null;
+            try
+            {
+                FromDate = new DateTime(DateTime.Now.Year, 1, 1);
+                ToDate = DateTime.Now;
+                SelectedCustomer = Customers.FirstOrDefault();
+                MinAmount = string.Empty;
+
+                // ⭐ العودة للصفحة الأولى
+                CurrentPage = 1;
+                LoadData();
+
+                SelectedInvoice = null;
+
+                MessageBox.Show("تم إعادة تعيين الفلترة بنجاح", "إعادة التعيين",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"خطأ في إعادة التعيين: {ex.Message}", "خطأ",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
-        // ⭐ دالة جديدة: إعادة الفاتورة المكتملة إلى المسودة
-        private void ReturnToDraft()
+
+        // ⭐ دالة جديدة: استعراض خيارات التصدير
+        private ExportOption AskExportOption()
         {
-            if (SelectedInvoice == null) return;
-
-            var result = MessageBox.Show(
-                $"هل تريد إعادة عرض الأسعار رقم {SelectedInvoice.Id} إلى حالة المسودة؟\n\n" +
-                "ملاحظة: سيتم إزالة الفاتورة من قائمة العروض المكتملة وإضافتها لقائمة المسودة.",
-                "إعادة إلى المسودة",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
+            var dialog = new Window
             {
-                try
-                {
-                    bool success = _invoiceRepository.ReturnToDraft(SelectedInvoice.Id);
+                Title = "خيارات التصدير",
+                Width = 400,
+                Height = 220,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = System.Windows.Application.Current.MainWindow,
+                FlowDirection = FlowDirection.RightToLeft,
+                ResizeMode = ResizeMode.NoResize,
+                Background = System.Windows.Media.Brushes.White
+            };
 
-                    if (success)
-                    {
-                        MessageBox.Show(
-                            $"تم إعادة عرض الأسعار رقم {SelectedInvoice.Id} إلى المسودة بنجاح.\n" +
-                            "يمكنك الآن تعديله من صفحة عروض الأسعار الجديدة.",
-                            "تمت العملية",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
+            ExportOption? selectedOption = null;
 
-                        // إزالة الفاتورة من القائمة الحالية
-                        CompletedInvoices.Remove(SelectedInvoice);
-                        SelectedInvoice = null;
-                    }
-                    else
-                    {
-                        MessageBox.Show("تعذر إعادة الفاتورة إلى المسودة. يرجى المحاولة مرة أخرى.",
-                            "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
-                catch (Exception ex)
+            var stack = new StackPanel { Margin = new Thickness(20) };
+            stack.Children.Add(new TextBlock
+            {
+                Text = "ما الذي تريد تصديره؟",
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(0, 0, 0, 15),
+                FontSize = 14
+            });
+
+            var options = new[]
+            {
+                ("الصفحة الحالية فقط", ExportOption.CurrentPage),
+                ("جميع الفواتير المفلترة", ExportOption.AllFiltered)
+            };
+
+            foreach (var opt in options)
+            {
+                var btn = new Button
                 {
-                    MessageBox.Show($"خطأ في إعادة الفاتورة إلى المسودة: {ex.Message}",
-                        "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                    Content = opt.Item1,
+                    Margin = new Thickness(0, 5, 0, 5),
+                    Padding = new Thickness(10),
+                    Cursor = System.Windows.Input.Cursors.Hand
+                };
+                btn.Click += (s, e) => { selectedOption = opt.Item2; dialog.Close(); };
+                stack.Children.Add(btn);
             }
+
+            var closeBtn = new Button
+            {
+                Content = "إلغاء",
+                Margin = new Thickness(0, 10, 0, 0),
+                Padding = new Thickness(5),
+                Background = System.Windows.Media.Brushes.Gray,
+                Foreground = System.Windows.Media.Brushes.White
+            };
+            closeBtn.Click += (s, e) => dialog.Close();
+            stack.Children.Add(closeBtn);
+
+            dialog.Content = stack;
+            dialog.ShowDialog();
+            return selectedOption ?? ExportOption.Cancel;
+        }
+
+        private enum ExportOption
+        {
+            Cancel,
+            CurrentPage,
+            AllFiltered
         }
 
         private void ExportFilteredInvoicesToExcel()
         {
             try
             {
-                if (CompletedInvoices.Count == 0)
+                var exportOption = AskExportOption();
+                if (exportOption == ExportOption.Cancel) return;
+
+                List<Invoice> invoicesToExport;
+                string exportTypeText;
+
+                if (exportOption == ExportOption.CurrentPage)
                 {
-                    MessageBox.Show("لا توجد عروض أسعار للتصدير", "تنبيه",
+                    invoicesToExport = CompletedInvoices.ToList();
+                    exportTypeText = $"الصفحة {CurrentPage} (عدد {invoicesToExport.Count})";
+                }
+                else
+                {
+                    // ⭐ جلب جميع الفواتير المفلترة
+                    int? customerId = (SelectedCustomer?.Id > 0) ? SelectedCustomer.Id : null;
+                    decimal? minAmountValue = null;
+
+                    if (!string.IsNullOrWhiteSpace(MinAmount) && decimal.TryParse(MinAmount, out decimal minAmount))
+                    {
+                        minAmountValue = minAmount;
+                    }
+
+                    invoicesToExport = _invoiceRepository.GetCompletedInvoicesFiltered(
+                        fromDate: FromDate,
+                        toDate: ToDate,
+                        customerId: customerId,
+                        minAmount: minAmountValue);
+
+                    exportTypeText = $"جميع الفواتير المفلترة (عدد {invoicesToExport.Count})";
+                }
+
+                if (invoicesToExport.Count == 0)
+                {
+                    MessageBox.Show("لا توجد فواتير للتصدير", "تنبيه",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -276,7 +506,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                 {
                     Filter = "ملفات Excel (*.xlsx)|*.xlsx",
                     FileName = $"عروض_الأسعار_{DateTime.Now:yyyy-MM-dd_HHmmss}.xlsx",
-                    Title = "تصدير عروض الأسعار إلى Excel"
+                    Title = $"تصدير {exportTypeText}"
                 };
 
                 if (saveFileDialog.ShowDialog() == true)
@@ -287,21 +517,30 @@ namespace SupplyCompanySystem.UI.ViewModels
                     {
                         var worksheet = workbook.Worksheets.Add("عروض_الأسعار");
 
+                        // ⭐ عنوان التصدير بناء على النوع
                         var titleCell = worksheet.Cell(1, 1);
-                        titleCell.Value = "قائمة عروض الأسعار السابقة";
+                        titleCell.Value = exportOption == ExportOption.CurrentPage
+                            ? $"قائمة عروض الأسعار - الصفحة {CurrentPage}"
+                            : "قائمة عروض الأسعار - جميع الفواتير المفلترة";
                         titleCell.Style.Font.Bold = true;
                         titleCell.Style.Font.FontSize = 14;
                         titleCell.Style.Font.FontColor = XLColor.White;
                         titleCell.Style.Fill.BackgroundColor = XLColor.FromArgb(44, 62, 80);
                         titleCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                         titleCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-                        worksheet.Range(1, 1, 1, 10).Merge();
+                        worksheet.Range(1, 1, 1, 11).Merge();
 
+                        // ⭐ معلومات التصدير
                         worksheet.Cell(2, 1).Value = $"الفترة من: {FromDate:yyyy/MM/dd} إلى: {ToDate:yyyy/MM/dd}";
-                        worksheet.Cell(3, 1).Value = $"عدد عروض الأسعار: {CompletedInvoices.Count}";
+                        worksheet.Cell(3, 1).Value = $"عدد الفواتير: {invoicesToExport.Count}";
                         worksheet.Cell(3, 1).Style.Font.Bold = true;
 
-                        worksheet.Cell(2, 8).Value = $"تاريخ التصدير: {DateTime.Now:yyyy/MM/dd HH:mm}";
+                        if (exportOption == ExportOption.CurrentPage)
+                        {
+                            worksheet.Cell(4, 1).Value = $"الصفحة: {CurrentPage} من {TotalPages}";
+                        }
+
+                        worksheet.Cell(2, 9).Value = $"تاريخ التصدير: {DateTime.Now:yyyy/MM/dd HH:mm}";
 
                         var headers = new string[]
                         {
@@ -314,10 +553,11 @@ namespace SupplyCompanySystem.UI.ViewModels
                             "الإجمالي النهائي",
                             "عدد الأصناف",
                             "الكمية الإجمالية",
-                            "الحالة"
+                            "الحالة",
+                            "ملاحظات"
                         };
 
-                        int headerRow = 5;
+                        int headerRow = exportOption == ExportOption.CurrentPage ? 6 : 5;
                         for (int i = 0; i < headers.Length; i++)
                         {
                             var cell = worksheet.Cell(headerRow, i + 1);
@@ -332,7 +572,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                         }
 
                         int dataRow = headerRow + 1;
-                        foreach (var invoice in CompletedInvoices)
+                        foreach (var invoice in invoicesToExport)
                         {
                             var fullInvoice = _invoiceRepository.GetByIdWithItems(invoice.Id);
 
@@ -350,6 +590,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                             worksheet.Cell(dataRow, 8).Value = itemCount;
                             worksheet.Cell(dataRow, 9).Value = totalQuantity;
                             worksheet.Cell(dataRow, 10).Value = GetInvoiceStatusArabic(invoice.Status);
+                            worksheet.Cell(dataRow, 11).Value = invoice.Notes ?? "";
 
                             for (int i = 5; i <= 7; i++)
                             {
@@ -359,7 +600,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                                 cell.Style.Font.FontColor = XLColor.FromArgb(39, 174, 96);
                             }
 
-                            for (int i = 1; i <= 10; i++)
+                            for (int i = 1; i <= 11; i++)
                             {
                                 var cell = worksheet.Cell(dataRow, i);
                                 cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
@@ -374,8 +615,9 @@ namespace SupplyCompanySystem.UI.ViewModels
                         worksheet.Columns("E:G").Width = 20;
                         worksheet.Columns("H:I").Width = 15;
                         worksheet.Column("J").Width = 12;
+                        worksheet.Column("K").Width = 25;
 
-                        worksheet.Columns("A,A,C,D,H,I").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                        worksheet.Columns("A,A,C,D,H,I,J").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                         worksheet.Columns("B").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
                         worksheet.Columns("E,F,G").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
@@ -384,9 +626,9 @@ namespace SupplyCompanySystem.UI.ViewModels
                         worksheet.Cell(totalRow, 3).Style.Font.Bold = true;
                         worksheet.Cell(totalRow, 3).Style.Font.FontSize = 12;
 
-                        worksheet.Cell(totalRow, 5).Value = CompletedInvoices.Sum(i => i.TotalAmount);
-                        worksheet.Cell(totalRow, 6).Value = CompletedInvoices.Sum(i => i.InvoiceDiscountAmount);
-                        worksheet.Cell(totalRow, 7).Value = CompletedInvoices.Sum(i => i.FinalAmount);
+                        worksheet.Cell(totalRow, 5).Value = invoicesToExport.Sum(i => i.TotalAmount);
+                        worksheet.Cell(totalRow, 6).Value = invoicesToExport.Sum(i => i.InvoiceDiscountAmount);
+                        worksheet.Cell(totalRow, 7).Value = invoicesToExport.Sum(i => i.FinalAmount);
 
                         for (int i = 5; i <= 7; i++)
                         {
@@ -404,7 +646,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                     }
 
                     MessageBox.Show(
-                        $"تم تصدير {CompletedInvoices.Count} عرض أسعار بنجاح إلى ملف Excel\n" +
+                        $"تم تصدير {invoicesToExport.Count} عرض أسعار بنجاح إلى ملف Excel\n" +
                         $"المسار: {filePath}",
                         "تصدير ناجح",
                         MessageBoxButton.OK,
@@ -420,28 +662,44 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private string GetInvoiceStatusArabic(InvoiceStatus status)
-        {
-            switch (status)
-            {
-                case InvoiceStatus.Completed:
-                    return "مكتملة";
-                case InvoiceStatus.Draft:
-                    return "مسودة";
-                case InvoiceStatus.Cancelled:
-                    return "ملغية";
-                default:
-                    return status.ToString();
-            }
-        }
-
         private void PrintAllFilteredInvoices()
         {
             try
             {
-                if (CompletedInvoices.Count == 0)
+                var exportOption = AskExportOption();
+                if (exportOption == ExportOption.Cancel) return;
+
+                List<Invoice> invoicesToPrint;
+                string exportTypeText;
+
+                if (exportOption == ExportOption.CurrentPage)
                 {
-                    MessageBox.Show("لا توجد عروض أسعار للطباعة", "تنبيه",
+                    invoicesToPrint = CompletedInvoices.ToList();
+                    exportTypeText = $"الصفحة {CurrentPage}";
+                }
+                else
+                {
+                    // ⭐ جلب جميع الفواتير المفلترة
+                    int? customerId = (SelectedCustomer?.Id > 0) ? SelectedCustomer.Id : null;
+                    decimal? minAmountValue = null;
+
+                    if (!string.IsNullOrWhiteSpace(MinAmount) && decimal.TryParse(MinAmount, out decimal minAmount))
+                    {
+                        minAmountValue = minAmount;
+                    }
+
+                    invoicesToPrint = _invoiceRepository.GetCompletedInvoicesFiltered(
+                        fromDate: FromDate,
+                        toDate: ToDate,
+                        customerId: customerId,
+                        minAmount: minAmountValue);
+
+                    exportTypeText = "جميع الفواتير المفلترة";
+                }
+
+                if (invoicesToPrint.Count == 0)
+                {
+                    MessageBox.Show("لا توجد فواتير للطباعة", "تنبيه",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -449,8 +707,8 @@ namespace SupplyCompanySystem.UI.ViewModels
                 SaveFileDialog saveFileDialog = new SaveFileDialog
                 {
                     Filter = "ملفات PDF (*.pdf)|*.pdf",
-                    FileName = $"عروض_الأسعار_{FromDate:yyyy-MM-dd}_إلى_{ToDate:yyyy-MM-dd}.pdf",
-                    Title = "طباعة عروض الأسعار إلى PDF"
+                    FileName = $"عروض_الأسعار_{DateTime.Now:yyyy-MM-dd_HHmmss}.pdf",
+                    Title = $"طباعة {exportTypeText}"
                 };
 
                 if (saveFileDialog.ShowDialog() == true)
@@ -460,15 +718,15 @@ namespace SupplyCompanySystem.UI.ViewModels
                     List<Invoice> fullInvoices = new List<Invoice>();
 
                     ProgressWindow progressWindow = new ProgressWindow();
-                    progressWindow.Title = "جاري تجميع عروض الأسعار";
+                    progressWindow.Title = $"جاري تجميع {exportTypeText}";
                     progressWindow.Show();
 
                     try
                     {
                         int current = 0;
-                        int total = CompletedInvoices.Count;
+                        int total = invoicesToPrint.Count;
 
-                        foreach (var invoice in CompletedInvoices)
+                        foreach (var invoice in invoicesToPrint)
                         {
                             current++;
                             progressWindow.UpdateProgress($"جاري تحميل عرض الأسعار {current} من {total}",
@@ -512,6 +770,71 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 MessageBox.Show($"خطأ في الطباعة: {ex.Message}\n\n{ex.InnerException?.Message}", "خطأ",
                     MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ReturnToDraft()
+        {
+            if (SelectedInvoice == null) return;
+
+            var result = MessageBox.Show(
+                $"هل تريد إعادة عرض الأسعار رقم {SelectedInvoice.Id} إلى حالة المسودة؟\n\n" +
+                "ملاحظة: سيتم إزالة الفاتورة من قائمة العروض المكتملة وإضافتها لقائمة المسودة.",
+                "إعادة إلى المسودة",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    bool success = _invoiceRepository.ReturnToDraft(SelectedInvoice.Id);
+
+                    if (success)
+                    {
+                        MessageBox.Show(
+                            $"تم إعادة عرض الأسعار رقم {SelectedInvoice.Id} إلى المسودة بنجاح.\n" +
+                            "يمكنك الآن تعديله من صفحة عروض الأسعار الجديدة.",
+                            "تمت العملية",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+
+                        // ⭐ إعادة تحميل البيانات بعد الحذف
+                        CompletedInvoices.Remove(SelectedInvoice);
+                        TotalCount--;
+                        TotalPages = (int)Math.Ceiling(TotalCount / (double)PageSize);
+
+                        if (CurrentPage > TotalPages && TotalPages > 0)
+                            CurrentPage = TotalPages;
+
+                        SelectedInvoice = null;
+                    }
+                    else
+                    {
+                        MessageBox.Show("تعذر إعادة الفاتورة إلى المسودة. يرجى المحاولة مرة أخرى.",
+                            "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"خطأ في إعادة الفاتورة إلى المسودة: {ex.Message}",
+                        "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private string GetInvoiceStatusArabic(InvoiceStatus status)
+        {
+            switch (status)
+            {
+                case InvoiceStatus.Completed:
+                    return "مكتملة";
+                case InvoiceStatus.Draft:
+                    return "مسودة";
+                case InvoiceStatus.Cancelled:
+                    return "ملغية";
+                default:
+                    return status.ToString();
             }
         }
 
@@ -577,7 +900,6 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        // ✅ دالة عامة لإلغاء التحديد يمكن استدعاؤها من View
         public void ClearInvoiceSelection()
         {
             SelectedInvoice = null;

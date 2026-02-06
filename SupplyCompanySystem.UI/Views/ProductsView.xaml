@@ -63,7 +63,7 @@
                   Margin="15">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="رقم المنتج" Binding="{Binding Id}" Width="100"/>
-                <DataGridTextColumn Header="اسم المنتج" Binding="{Binding Name}" Width="150"/>
+                <DataGridTextColumn Header="اسم المنتج" Binding="{Binding Name}" Width="*"/>
                 <DataGridTextColumn Header="الكود" Binding="{Binding SKU}" Width="100"/>
                 <DataGridTextColumn Header="السعر" Binding="{Binding Price, StringFormat='0.00'}" Width="100"/>
                 <DataGridTextColumn Header="الوحدة" Binding="{Binding Unit}" Width="80"/>
@@ -78,7 +78,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="الوصف" Binding="{Binding Description}" Width="*"/>
+                <DataGridTextColumn Header="الوصف" Binding="{Binding Description}" Width="250"/>
             </DataGrid.Columns>
         </DataGrid>
 
