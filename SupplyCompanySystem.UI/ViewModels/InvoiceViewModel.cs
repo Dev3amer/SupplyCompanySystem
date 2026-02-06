@@ -38,7 +38,9 @@ namespace SupplyCompanySystem.UI.ViewModels
         private Product _selectedProduct;
         private string _productQuantity;
         private string _productDiscount;
-        private string _profitMarginPercentage;
+        private string _productProfitMargin; // ✅ جديد: نسبة مكسب المنتج الفردي
+        private string _profitMarginPercentage; // نسبة مكسب الفاتورة كاملة
+        private string _invoiceDiscountPercentage; // ✅ جديد: نسبة خصم الفاتورة كاملة
         private bool _isEditMode;
         private bool _isSaved;
 
@@ -150,6 +152,7 @@ namespace SupplyCompanySystem.UI.ViewModels
 
                 OnPropertyChanged(nameof(InvoiceItems));
                 SyncInvoiceItems();
+                RecalculateTotals(); // ✅ إعادة حساب الإجماليات
             }
         }
 
@@ -169,6 +172,11 @@ namespace SupplyCompanySystem.UI.ViewModels
                     ProfitMarginPercentage = _currentInvoice.ProfitMarginPercentage != 0
                         ? _currentInvoice.ProfitMarginPercentage.ToString()
                         : string.Empty;
+
+                    // ✅ تعيين نسبة خصم الفاتورة
+                    InvoiceDiscountPercentage = _currentInvoice.InvoiceDiscountPercentage != 0
+                        ? _currentInvoice.InvoiceDiscountPercentage.ToString()
+                        : string.Empty;
                 }
 
                 OnPropertyChanged(nameof(CurrentInvoice));
@@ -185,7 +193,12 @@ namespace SupplyCompanySystem.UI.ViewModels
         public InvoiceItem SelectedInvoiceItem
         {
             get => _selectedInvoiceItem;
-            set { _selectedInvoiceItem = value; OnPropertyChanged(nameof(SelectedInvoiceItem)); }
+            set
+            {
+                _selectedInvoiceItem = value;
+                OnPropertyChanged(nameof(SelectedInvoiceItem));
+                (DeleteItemCommand as RelayCommand)?.NotifyCanExecuteChanged(); // ✅ تحديث حالة الزر
+            }
         }
 
         public Customer SelectedCustomer
@@ -217,6 +230,15 @@ namespace SupplyCompanySystem.UI.ViewModels
                 {
                     _selectedProduct = value;
                     OnPropertyChanged(nameof(SelectedProduct));
+
+                    // ✅ عند اختيار منتج، تعيين نسبة المكسب الافتراضية للمنتج
+                    if (value != null && !string.IsNullOrWhiteSpace(ProductProfitMargin))
+                    {
+                        if (decimal.TryParse(ProductProfitMargin, out decimal profitMargin) && profitMargin > 0)
+                        {
+                            // سيتم تطبيقه عند إضافة المنتج
+                        }
+                    }
                 }
             }
         }
@@ -228,7 +250,7 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _productQuantity = value;
                 OnPropertyChanged(nameof(ProductQuantity));
-                (AddItemCommand as RelayCommand)?.NotifyCanExecuteChanged();
+                (AddItemCommand as RelayCommand)?.NotifyCanExecuteChanged(); // ✅ تحديث حالة الزر
             }
         }
 
@@ -242,6 +264,28 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
+        // ✅ جديد: نسبة مكسب المنتج الفردي
+        public string ProductProfitMargin
+        {
+            get => _productProfitMargin;
+            set
+            {
+                if (_productProfitMargin != value)
+                {
+                    _productProfitMargin = value;
+                    OnPropertyChanged(nameof(ProductProfitMargin));
+
+                    // ✅ تحديث نسبة المكسب للمنتج المحدد حالياً
+                    if (SelectedProduct != null && !string.IsNullOrWhiteSpace(value) &&
+                        decimal.TryParse(value, out decimal profitMargin))
+                    {
+                        // ستستخدم عند إضافة المنتج
+                    }
+                }
+            }
+        }
+
+        // نسبة مكسب الفاتورة كاملة
         public string ProfitMarginPercentage
         {
             get => _profitMarginPercentage;
@@ -264,7 +308,35 @@ namespace SupplyCompanySystem.UI.ViewModels
                         }
                     }
 
-                    RecalculateAllItemsPrices();
+                    RecalculateAllItemsPrices(); // ✅ تحديث الأسعار فوراً
+                    RecalculateTotals(); // ✅ تحديث الإجماليات فوراً
+                }
+            }
+        }
+
+        public string InvoiceDiscountPercentage
+        {
+            get => _invoiceDiscountPercentage;
+            set
+            {
+                if (_invoiceDiscountPercentage != value)
+                {
+                    _invoiceDiscountPercentage = value;
+                    OnPropertyChanged(nameof(InvoiceDiscountPercentage));
+
+                    if (_currentInvoice != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(value))
+                        {
+                            _currentInvoice.InvoiceDiscountPercentage = 0;
+                        }
+                        else if (decimal.TryParse(value, out decimal decimalValue))
+                        {
+                            _currentInvoice.InvoiceDiscountPercentage = decimalValue;
+                        }
+                    }
+
+                    RecalculateTotals(); // ✅ تحديث الإجماليات فوراً
                 }
             }
         }
@@ -281,10 +353,15 @@ namespace SupplyCompanySystem.UI.ViewModels
             set { _isSaved = value; OnPropertyChanged(nameof(IsSaved)); }
         }
 
-        // ===== Computed =====
+        // ===== Computed Properties =====
         public decimal TotalBeforeDiscount => _currentInvoice?.Items.Sum(i => i.Quantity * i.UnitPrice) ?? 0;
-        public decimal TotalDiscount => _currentInvoice?.Items.Sum(i => (i.Quantity * i.UnitPrice * i.DiscountPercentage) / 100) ?? 0;
-        public decimal FinalAmountCalculated => TotalBeforeDiscount - TotalDiscount;
+        public decimal TotalItemsDiscount => _currentInvoice?.Items.Sum(i => (i.Quantity * i.UnitPrice * i.DiscountPercentage) / 100) ?? 0;
+        public decimal SubTotalAfterItemsDiscount => TotalBeforeDiscount - TotalItemsDiscount;
+        public decimal InvoiceDiscountAmount => (SubTotalAfterItemsDiscount * (_currentInvoice?.InvoiceDiscountPercentage ?? 0)) / 100;
+        public decimal FinalAmountCalculated => SubTotalAfterItemsDiscount - InvoiceDiscountAmount;
+
+        // ✅ جديد: إجمالي المكسب من جميع المنتجات
+        public decimal TotalProfitAmount => _currentInvoice?.Items.Sum(i => i.ItemProfitAmount) ?? 0;
 
         // ===== Commands =====
         public RelayCommand NewInvoiceCommand { get; }
@@ -294,7 +371,7 @@ namespace SupplyCompanySystem.UI.ViewModels
         public RelayCommand RemoveItemCommand { get; }
         public RelayCommand DeleteItemCommand { get; }
         public RelayCommand CompleteInvoiceCommand { get; }
-        public RelayCommand SelectInvoiceCommand { get; }
+        //public RelayCommand SelectInvoiceCommand { get; }
         public RelayCommand EditInvoiceCommand { get; }
         public RelayCommand CancelInvoiceCommand { get; }
         public RelayCommand DeleteInvoiceCommand { get; }
@@ -323,6 +400,8 @@ namespace SupplyCompanySystem.UI.ViewModels
             _productsViewSource.Filter += ProductsViewSource_Filter;
 
             _profitMarginPercentage = string.Empty;
+            _invoiceDiscountPercentage = string.Empty; // ✅ تهيئة
+            _productProfitMargin = string.Empty; // ✅ تهيئة
             _customerSearchText = string.Empty;
             _productSearchText = string.Empty;
 
@@ -331,9 +410,9 @@ namespace SupplyCompanySystem.UI.ViewModels
             CancelCommand = new RelayCommand(_ => Cancel());
             AddItemCommand = new RelayCommand(_ => AddItem(), _ => CanAddItem());
             RemoveItemCommand = new RelayCommand(_ => RemoveItem(), _ => InvoiceItems.Count > 0);
-            DeleteItemCommand = new RelayCommand(_ => DeleteSelectedItem());
+            DeleteItemCommand = new RelayCommand(_ => DeleteSelectedItem(), _ => SelectedInvoiceItem != null);
             CompleteInvoiceCommand = new RelayCommand(_ => CompleteInvoice(), _ => _currentInvoice != null && InvoiceItems.Count > 0 && _isSaved);
-            SelectInvoiceCommand = new RelayCommand(_ => SelectInvoice());
+            //SelectInvoiceCommand = new RelayCommand(_ => SelectInvoice());
             EditInvoiceCommand = new RelayCommand(_ => EditInvoice());
             CancelInvoiceCommand = new RelayCommand(_ => CancelInvoice());
             DeleteInvoiceCommand = new RelayCommand(_ => DeleteInvoice());
@@ -440,7 +519,8 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 if (e.PropertyName == nameof(InvoiceItem.Quantity) ||
                     e.PropertyName == nameof(InvoiceItem.UnitPrice) ||
-                    e.PropertyName == nameof(InvoiceItem.DiscountPercentage))
+                    e.PropertyName == nameof(InvoiceItem.DiscountPercentage) ||
+                    e.PropertyName == nameof(InvoiceItem.ItemProfitMarginPercentage))
                 {
                     item.LineTotal = (item.Quantity * item.UnitPrice) - ((item.Quantity * item.UnitPrice * item.DiscountPercentage) / 100);
                     RecalculateTotals();
@@ -450,19 +530,12 @@ namespace SupplyCompanySystem.UI.ViewModels
 
         // ===== Helpers =====
 
-        private decimal CalculatePriceWithProfitMargin(decimal basePrice)
+        private decimal CalculatePriceWithProfitMargin(decimal basePrice, decimal profitMarginPercentage)
         {
-            if (string.IsNullOrWhiteSpace(ProfitMarginPercentage))
+            if (profitMarginPercentage == 0)
                 return basePrice;
 
-            if (decimal.TryParse(ProfitMarginPercentage, out decimal profitRate))
-            {
-                if (profitRate == 0)
-                    return basePrice;
-
-                return basePrice + (basePrice * profitRate / 100);
-            }
-            return basePrice;
+            return basePrice + (basePrice * profitMarginPercentage / 100);
         }
 
         private void RecalculateAllItemsPrices()
@@ -470,12 +543,29 @@ namespace SupplyCompanySystem.UI.ViewModels
             if (_currentInvoice?.Items == null || _currentInvoice.Items.Count == 0)
                 return;
 
+            decimal invoiceProfitMargin = 0;
+            if (!string.IsNullOrWhiteSpace(ProfitMarginPercentage) &&
+                decimal.TryParse(ProfitMarginPercentage, out decimal profitRate))
+            {
+                invoiceProfitMargin = profitRate;
+            }
+
             foreach (var item in InvoiceItems)
             {
                 if (item.Product != null)
                 {
                     decimal basePrice = item.Product.Price;
-                    item.UnitPrice = CalculatePriceWithProfitMargin(basePrice);
+                    decimal itemProfitMargin = item.ItemProfitMarginPercentage;
+
+                    // ✅ تطبيق نسبة المكسب الأكبر: إما نسبة الفاتورة أو نسبة المنتج
+                    decimal profitMarginToApply = Math.Max(invoiceProfitMargin, itemProfitMargin);
+
+                    item.OriginalUnitPrice = basePrice;
+                    item.UnitPrice = CalculatePriceWithProfitMargin(basePrice, profitMarginToApply);
+
+                    // ✅ إذا تم تغيير السعر، نحتاج لتحديث LineTotal
+                    item.LineTotal = (item.Quantity * item.UnitPrice) -
+                                    ((item.Quantity * item.UnitPrice * item.DiscountPercentage) / 100);
                 }
             }
             RecalculateTotals();
@@ -484,12 +574,16 @@ namespace SupplyCompanySystem.UI.ViewModels
         private void RecalculateTotals()
         {
             if (_currentInvoice == null) return;
+
             _currentInvoice.TotalAmount = TotalBeforeDiscount;
             _currentInvoice.FinalAmount = FinalAmountCalculated;
 
             OnPropertyChanged(nameof(TotalBeforeDiscount));
-            OnPropertyChanged(nameof(TotalDiscount));
+            OnPropertyChanged(nameof(TotalItemsDiscount));
+            OnPropertyChanged(nameof(SubTotalAfterItemsDiscount));
+            OnPropertyChanged(nameof(InvoiceDiscountAmount));
             OnPropertyChanged(nameof(FinalAmountCalculated));
+            OnPropertyChanged(nameof(TotalProfitAmount)); // ✅ تحديث عرض المكسب الكلي
         }
 
         private void SyncInvoiceItems()
@@ -504,6 +598,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                    !string.IsNullOrWhiteSpace(ProductQuantity) &&
                    decimal.TryParse(ProductQuantity, out decimal qty) &&
                    qty > 0;
+            // ✅ تم إزالة شرط كتابة مكسب الفاتورة
         }
 
         // ===== Commands Methods =====
@@ -577,18 +672,21 @@ namespace SupplyCompanySystem.UI.ViewModels
                 FinalAmount = 0,
                 TotalAmount = 0,
                 Items = new List<InvoiceItem>(),
-                ProfitMarginPercentage = 0
+                ProfitMarginPercentage = 0,
+                InvoiceDiscountPercentage = 0 // ✅ قيمة افتراضية
             };
             InvoiceItems = new ObservableCollection<InvoiceItem>();
             SelectedCustomer = null;
             SelectedProduct = null;
             ProductQuantity = string.Empty;
             ProductDiscount = string.Empty;
+            ProductProfitMargin = string.Empty; // ✅ تفريغ
             ProfitMarginPercentage = string.Empty;
+            InvoiceDiscountPercentage = string.Empty; // ✅ تفريغ
             CustomerSearchText = string.Empty; // ✅ تفريغ البحث
             ProductSearchText = string.Empty;  // ✅ تفريغ البحث
             SelectedInvoiceFromList = null;
-            IsEditMode = true;
+            IsEditMode = true; // ✅ نبدأ مباشرة في وضع التحرير
             IsSaved = false;
         }
 
@@ -608,22 +706,39 @@ namespace SupplyCompanySystem.UI.ViewModels
             ProfitMarginPercentage = SelectedInvoiceFromList.ProfitMarginPercentage != 0
                 ? SelectedInvoiceFromList.ProfitMarginPercentage.ToString()
                 : string.Empty;
+            InvoiceDiscountPercentage = SelectedInvoiceFromList.InvoiceDiscountPercentage != 0
+                ? SelectedInvoiceFromList.InvoiceDiscountPercentage.ToString()
+                : string.Empty;
             CustomerSearchText = SelectedCustomer?.Name ?? string.Empty; // ✅ تعيين اسم العميل في البحث
             ProductSearchText = string.Empty;  // ✅ تفريغ البحث
             IsEditMode = false;
             IsSaved = true;
         }
 
-        private void EditInvoice() => IsEditMode = true;
+        private void EditInvoice()
+        {
+            // ✅ الخطوة 1: تحديث البيانات (وظيفة التحديث القديمة)
+            SelectInvoice();
+
+            // ✅ الخطوة 2: تفعيل وضع التحرير
+            IsEditMode = true;
+        }
 
         private void AddItem()
         {
             if (!decimal.TryParse(ProductQuantity, out decimal quantity) || quantity <= 0 || SelectedProduct == null) return;
 
-            decimal discount = 0;
-            if (!string.IsNullOrWhiteSpace(ProductDiscount)) decimal.TryParse(ProductDiscount, out discount);
+            decimal itemDiscount = 0;
+            if (!string.IsNullOrWhiteSpace(ProductDiscount))
+                decimal.TryParse(ProductDiscount, out itemDiscount);
 
-            decimal priceWithMargin = CalculatePriceWithProfitMargin(SelectedProduct.Price);
+            decimal itemProfitMargin = 0;
+            if (!string.IsNullOrWhiteSpace(ProductProfitMargin))
+                decimal.TryParse(ProductProfitMargin, out itemProfitMargin);
+
+            // ✅ حساب السعر مع المكسب
+            decimal originalPrice = SelectedProduct.Price;
+            decimal priceWithMargin = CalculatePriceWithProfitMargin(originalPrice, itemProfitMargin);
 
             // البحث عن المنتج الموجود حالياً
             var existing = InvoiceItems.FirstOrDefault(i => i.ProductId == SelectedProduct.Id);
@@ -632,7 +747,9 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 // ✅ تحديث المنتج الموجود مع نقله للأعلى
                 existing.Quantity += quantity;
-                existing.DiscountPercentage = discount;
+                existing.DiscountPercentage = itemDiscount; // ✅ تعيين الخصم
+                existing.ItemProfitMarginPercentage = itemProfitMargin;
+                existing.OriginalUnitPrice = originalPrice;
                 existing.UnitPrice = priceWithMargin;
                 existing.LineTotal = (existing.Quantity * existing.UnitPrice) -
                                     ((existing.Quantity * existing.UnitPrice * existing.DiscountPercentage) / 100);
@@ -647,7 +764,9 @@ namespace SupplyCompanySystem.UI.ViewModels
                 var newItem = new InvoiceItem(SelectedProduct.Id, quantity, priceWithMargin)
                 {
                     Product = SelectedProduct,
-                    DiscountPercentage = discount
+                    DiscountPercentage = itemDiscount, // ✅ تعيين الخصم
+                    ItemProfitMarginPercentage = itemProfitMargin,
+                    OriginalUnitPrice = originalPrice
                 };
                 newItem.LineTotal = (newItem.Quantity * newItem.UnitPrice) -
                                    ((newItem.Quantity * newItem.UnitPrice * newItem.DiscountPercentage) / 100);
@@ -658,7 +777,8 @@ namespace SupplyCompanySystem.UI.ViewModels
             // ✅ تحديث الواجهة
             SelectedProduct = null;
             ProductQuantity = string.Empty;
-            ProductDiscount = string.Empty;
+            ProductDiscount = string.Empty; // ✅ تفريغ حقل الخصم
+            ProductProfitMargin = string.Empty; // ✅ تفريغ حقل المكسب
             ProductSearchText = string.Empty;
             RecalculateTotals();
 
@@ -690,6 +810,7 @@ namespace SupplyCompanySystem.UI.ViewModels
             CurrentInvoice.CustomerId = SelectedCustomer.Id;
             CurrentInvoice.Customer = SelectedCustomer;
 
+            // ✅ حفظ نسبة مكسب الفاتورة
             if (string.IsNullOrWhiteSpace(ProfitMarginPercentage))
             {
                 CurrentInvoice.ProfitMarginPercentage = 0;
@@ -697,6 +818,16 @@ namespace SupplyCompanySystem.UI.ViewModels
             else if (decimal.TryParse(ProfitMarginPercentage, out decimal profitMargin))
             {
                 CurrentInvoice.ProfitMarginPercentage = profitMargin;
+            }
+
+            // ✅ حفظ نسبة خصم الفاتورة
+            if (string.IsNullOrWhiteSpace(InvoiceDiscountPercentage))
+            {
+                CurrentInvoice.InvoiceDiscountPercentage = 0;
+            }
+            else if (decimal.TryParse(InvoiceDiscountPercentage, out decimal invoiceDiscount))
+            {
+                CurrentInvoice.InvoiceDiscountPercentage = invoiceDiscount;
             }
 
             SyncInvoiceItems();
@@ -776,7 +907,9 @@ namespace SupplyCompanySystem.UI.ViewModels
             SelectedProduct = null;
             ProductQuantity = string.Empty;
             ProductDiscount = string.Empty;
+            ProductProfitMargin = string.Empty; // ✅ تفريغ
             ProfitMarginPercentage = string.Empty;
+            InvoiceDiscountPercentage = string.Empty; // ✅ تفريغ
             CustomerSearchText = string.Empty; // ✅ تفريغ البحث
             ProductSearchText = string.Empty;  // ✅ تفريغ البحث
             SelectedInvoiceFromList = null;

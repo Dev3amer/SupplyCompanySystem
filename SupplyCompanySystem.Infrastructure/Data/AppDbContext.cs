@@ -87,17 +87,25 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .Property(i => i.TotalAmount)
                 .HasPrecision(12, 2);
 
-            // ✅ شيلنا DiscountPercentage و DiscountAmount من الفاتورة
-            // الآن الخصم بيكون في كل InvoiceItem
-
             modelBuilder.Entity<Invoice>()
                 .Property(i => i.FinalAmount)
                 .HasPrecision(12, 2);
 
             modelBuilder.Entity<Invoice>()
-                 .Property(i => i.Notes)
-                 .HasMaxLength(500)
-                 .IsRequired(false);
+                .Property(i => i.ProfitMarginPercentage)
+                .HasPrecision(5, 2)
+                .HasDefaultValue(0);
+
+            // ✅ جديد: نسبة الخصم على الفاتورة كاملة
+            modelBuilder.Entity<Invoice>()
+                .Property(i => i.InvoiceDiscountPercentage)
+                .HasPrecision(5, 2)
+                .HasDefaultValue(0);
+
+            modelBuilder.Entity<Invoice>()
+                .Property(i => i.Notes)
+                .HasMaxLength(500)
+                .IsRequired(false);
 
             // تكوين جدول بنود الفاتورة
             modelBuilder.Entity<InvoiceItem>()
@@ -123,9 +131,20 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .Property(ii => ii.UnitPrice)
                 .HasPrecision(10, 2);
 
-            // ✅ جديد - نسبة الخصم لكل بند
+            // ✅ جديد: السعر الأصلي
+            modelBuilder.Entity<InvoiceItem>()
+                .Property(ii => ii.OriginalUnitPrice)
+                .HasPrecision(10, 2);
+
+            // ✅ جديد: نسبة الخصم لكل بند
             modelBuilder.Entity<InvoiceItem>()
                 .Property(ii => ii.DiscountPercentage)
+                .HasPrecision(5, 2)
+                .HasDefaultValue(0);
+
+            // ✅ جديد: نسبة المكسب على المنتج الفردي
+            modelBuilder.Entity<InvoiceItem>()
+                .Property(ii => ii.ItemProfitMarginPercentage)
                 .HasPrecision(5, 2)
                 .HasDefaultValue(0);
 

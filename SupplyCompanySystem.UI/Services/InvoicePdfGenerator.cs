@@ -180,6 +180,23 @@ namespace SupplyCompanySystem.UI.Services
                                             "العنوان:",
                                             invoice.Customer?.Address ?? ""
                                         );
+
+                                        // ✅ عرض نسبة مكسب وخصم الفاتورة إن وجدت
+                                        if (invoice.ProfitMarginPercentage > 0)
+                                        {
+                                            InfoRow(
+                                                "نسبة مكسب الفاتورة:",
+                                                $"{invoice.ProfitMarginPercentage:0.00}%"
+                                            );
+                                        }
+
+                                        if (invoice.InvoiceDiscountPercentage > 0)
+                                        {
+                                            InfoRow(
+                                                "نسبة خصم الفاتورة:",
+                                                $"{invoice.InvoiceDiscountPercentage:0.00}%"
+                                            );
+                                        }
                                     });
 
                                     row.RelativeColumn(1)
@@ -204,11 +221,13 @@ namespace SupplyCompanySystem.UI.Services
                                     table.ColumnsDefinition(columns =>
                                     {
                                         columns.RelativeColumn(0.6f);      // م
-                                        columns.RelativeColumn(2.5f);      // اسم الصنف
+                                        columns.RelativeColumn(1.8f);      // اسم الصنف
                                         columns.RelativeColumn(0.8f);      // الوحدة
                                         columns.RelativeColumn(0.8f);      // الكمية
-                                        columns.RelativeColumn(1);         // سعر الوحدة
-                                        columns.RelativeColumn(0.8f);      // الخصم %
+                                        columns.RelativeColumn(1);         // السعر الأصلي
+                                        columns.RelativeColumn(0.8f);      // مكسب المنتج %
+                                        columns.RelativeColumn(1);         // سعر بعد المكسب
+                                        columns.RelativeColumn(0.8f);      // خصم المنتج %
                                         columns.RelativeColumn(1.2f);      // الإجمالي
                                     });
 
@@ -226,8 +245,10 @@ namespace SupplyCompanySystem.UI.Services
                                         HeaderCell("اسم الصنف");
                                         HeaderCell("الوحدة");
                                         HeaderCell("الكمية");
-                                        HeaderCell("سعر الوحدة");
-                                        HeaderCell("الخصم %");
+                                        HeaderCell("السعر الأصلي");
+                                        HeaderCell("مكسب %");
+                                        HeaderCell("سعر بعد المكسب");
+                                        HeaderCell("خصم %");
                                         HeaderCell("الإجمالي");
                                     });
 
@@ -252,6 +273,8 @@ namespace SupplyCompanySystem.UI.Services
                                         Cell(item.Product?.Name ?? "", true);
                                         Cell(item.Product?.Unit ?? "");
                                         Cell(item.Quantity.ToString());
+                                        Cell(item.OriginalUnitPrice.ToString("0.00"));
+                                        Cell(item.ItemProfitMarginPercentage.ToString("0.00"));
                                         Cell(item.UnitPrice.ToString("0.00"));
                                         Cell(item.DiscountPercentage.ToString("0.00"));
                                         Cell(item.LineTotal.ToString("0.00"));
@@ -326,20 +349,37 @@ namespace SupplyCompanySystem.UI.Services
                                     }
 
                                     // حساب إجمالي الخصم من جميع البنود
-                                    decimal totalDiscount = 0;
+                                    decimal totalItemsDiscount = 0;
+                                    decimal totalItemsProfit = 0;
                                     foreach (var item in invoice.Items)
                                     {
-                                        totalDiscount += (item.Quantity * item.UnitPrice * item.DiscountPercentage) / 100;
+                                        totalItemsDiscount += (item.Quantity * item.UnitPrice * item.DiscountPercentage) / 100;
+                                        totalItemsProfit += (item.Quantity * item.OriginalUnitPrice * item.ItemProfitMarginPercentage) / 100;
                                     }
+
+                                    // حساب خصم الفاتورة
+                                    decimal totalBeforeDiscount = invoice.Items.Sum(i => i.Quantity * i.UnitPrice);
+                                    decimal subtotalAfterItemsDiscount = totalBeforeDiscount - totalItemsDiscount;
+                                    decimal invoiceDiscountAmount = (subtotalAfterItemsDiscount * invoice.InvoiceDiscountPercentage) / 100;
 
                                     SummaryRow(
                                         "إجمالي الفاتورة:",
-                                        invoice.TotalAmount.ToString("0.00")
+                                        totalBeforeDiscount.ToString("0.00")
                                     );
 
                                     SummaryRow(
-                                        "إجمالي الخصم:",
-                                        totalDiscount.ToString("0.00")
+                                        "إجمالي خصم المنتجات:",
+                                        totalItemsDiscount.ToString("0.00")
+                                    );
+
+                                    SummaryRow(
+                                        "المجموع بعد خصم المنتجات:",
+                                        subtotalAfterItemsDiscount.ToString("0.00")
+                                    );
+
+                                    SummaryRow(
+                                        "خصم الفاتورة:",
+                                        invoiceDiscountAmount.ToString("0.00")
                                     );
 
                                     col.Item().PaddingTop(8);
@@ -349,6 +389,13 @@ namespace SupplyCompanySystem.UI.Services
                                         "الإجمالي النهائي:",
                                         invoice.FinalAmount.ToString("0.00"),
                                         true
+                                    );
+
+                                    // ✅ عرض المكسب الكلي
+                                    col.Item().PaddingTop(10);
+                                    SummaryRow(
+                                        "المكسب الكلي:",
+                                        totalItemsProfit.ToString("0.00")
                                     );
 
                                     // التفنيط
