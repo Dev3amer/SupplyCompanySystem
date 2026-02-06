@@ -7,7 +7,6 @@ namespace SupplyCompanySystem.Application.Interfaces
         List<Customer> GetAll();
         Customer GetById(int id);
 
-        // ✅ إضافة إذا لم تكن موجودة
         List<Customer> GetActiveCustomers();
         List<Customer> GetInactiveCustomers();
 

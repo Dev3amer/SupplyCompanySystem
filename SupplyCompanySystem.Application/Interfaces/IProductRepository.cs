@@ -7,7 +7,6 @@ namespace SupplyCompanySystem.Application.Interfaces
         List<Product> GetAll();
         Product GetById(int id);
 
-        // ✅ إضافة دوال التحقق من التكرار
         bool IsNameUnique(string name, int? excludeId = null);
         bool IsSkuUnique(string sku, int? excludeId = null);
         Product GetByName(string name);

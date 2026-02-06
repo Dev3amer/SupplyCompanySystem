@@ -18,7 +18,6 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
             return _context.Customers.ToList();
         }
 
-        // ✅ إضافة دالة لجلب العملاء النشطين فقط
         public List<Customer> GetActiveCustomers()
         {
             return _context.Customers
@@ -27,7 +26,6 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 .ToList();
         }
 
-        // ✅ إضافة دالة لجلب العملاء المعطلين فقط
         public List<Customer> GetInactiveCustomers()
         {
             return _context.Customers

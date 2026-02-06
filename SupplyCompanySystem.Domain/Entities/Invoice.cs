@@ -14,8 +14,8 @@ namespace SupplyCompanySystem.Domain.Entities
     {
         private int _customerId;
         private Customer _customer;
-        private DateTime _invoiceDate; // ✅ سيتم تعيينه من المستخدم
-        private DateTime _createdDate; // ✅ جديد: تاريخ إنشاء السجل
+        private DateTime _invoiceDate;
+        private DateTime _createdDate;
         private InvoiceStatus _status;
         private List<InvoiceItem> _items;
         private decimal _totalAmount;
@@ -63,7 +63,6 @@ namespace SupplyCompanySystem.Domain.Entities
             }
         }
 
-        // ✅ جديد: تاريخ إنشاء السجل في قاعدة البيانات
         public DateTime CreatedDate
         {
             get => _createdDate;
@@ -173,15 +172,14 @@ namespace SupplyCompanySystem.Domain.Entities
 
         public Invoice()
         {
-            InvoiceDate = DateTime.Now; // ✅ التاريخ الافتراضي هو اليوم
-            CreatedDate = DateTime.Now; // ✅ تاريخ الإنشاء الفعلي
+            InvoiceDate = DateTime.Now;
+            CreatedDate = DateTime.Now;
             Status = InvoiceStatus.Draft;
             Items = new List<InvoiceItem>();
             ProfitMarginPercentage = 0;
             InvoiceDiscountPercentage = 0;
         }
 
-        // ✅ Constructor مع إمكانية تحديد تاريخ مخصص
         public Invoice(DateTime invoiceDate)
         {
             InvoiceDate = invoiceDate;

@@ -1,0 +1,42 @@
+﻿<Window x:Class="SupplyCompanySystem.UI.Views.ProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="جاري المعالجة" 
+        Height="150" 
+        Width="400"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="SingleBorderWindow">
+
+    <Grid Background="White" Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- النص التوضيحي -->
+        <TextBlock x:Name="ProgressText" 
+                   Grid.Row="0" 
+                   Text="جاري تحميل البيانات..." 
+                   Margin="0,0,0,10"
+                   HorizontalAlignment="Center"
+                   FontSize="14"/>
+
+        <!-- شريط التقدم -->
+        <ProgressBar x:Name="ProgressBar" 
+                     Grid.Row="1" 
+                     Height="25" 
+                     Minimum="0" 
+                     Maximum="100"
+                     Margin="0,0,0,10"/>
+
+        <!-- النسبة المئوية -->
+        <TextBlock x:Name="PercentageText" 
+                   Grid.Row="2" 
+                   Text="0%" 
+                   HorizontalAlignment="Center"
+                   FontSize="12"
+                   FontWeight="Bold"/>
+    </Grid>
+</Window>

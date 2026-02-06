@@ -956,9 +956,6 @@ namespace SupplyCompanySystem.UI.ViewModels
 
             // ✅ إعادة حساب الإجماليات لتحديث الواجهة
             RecalculateTotalsInternal();
-
-            MessageBox.Show($"تم إنشاء فاتورة جديدة بتاريخ: {invoiceDate:yyyy/MM/dd}",
-                "فاتورة جديدة", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void SelectInvoice()
@@ -967,7 +964,7 @@ namespace SupplyCompanySystem.UI.ViewModels
 
             if (SelectedInvoiceFromList.Status == InvoiceStatus.Completed || SelectedInvoiceFromList.Status == InvoiceStatus.Cancelled)
             {
-                MessageBox.Show("لا يمكن تعديل هذه الفاتورة", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("لا يمكن تعديل عرض الأسعار هذا", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -1146,7 +1143,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                 string pdfPath = InvoicePdfGenerator.GenerateInvoicePdf(CurrentInvoice, fileName);
 
                 MessageBox.Show(
-                    $"تم إكمال الفاتورة بنجاح!\n\nتم حفظ الفاتورة في:\n{pdfPath}",
+                    $"تم إكمال عرض الأسعار بنجاح!\n\nتم حفظ عرض الأسعار في:\n{pdfPath}",
                     "نجاح",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
@@ -1157,7 +1154,7 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"خطأ في إكمال الفاتورة أو إنشاء PDF: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"خطأ في إكمال عرض الأسعار أو إنشاء PDF: {ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -1175,11 +1172,11 @@ namespace SupplyCompanySystem.UI.ViewModels
             if (SelectedInvoiceFromList == null) return;
             if (SelectedInvoiceFromList.Status == InvoiceStatus.Completed)
             {
-                MessageBox.Show("لا يمكن حذف فاتورة مكتملة");
+                MessageBox.Show("لا يمكن حذف عرض أسعار مكتمل");
                 return;
             }
 
-            var result = MessageBox.Show($"حذف الفاتورة رقم {SelectedInvoiceFromList.Id}؟", "تأكيد", MessageBoxButton.YesNo);
+            var result = MessageBox.Show($"حذف عرض الأسعار رقم {SelectedInvoiceFromList.Id}؟", "تأكيد", MessageBoxButton.YesNo);
             if (result == MessageBoxResult.Yes)
             {
                 _invoiceRepository.Delete(SelectedInvoiceFromList.Id);

@@ -23,7 +23,6 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
             return _context.Products.FirstOrDefault(p => p.Id == id);
         }
 
-        // ✅ التحقق من تكرار الاسم
         public bool IsNameUnique(string name, int? excludeId = null)
         {
             var query = _context.Products.Where(p => p.Name.ToLower() == name.ToLower().Trim());
@@ -36,7 +35,6 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
             return !query.Any();
         }
 
-        // ✅ التحقق من تكرار SKU
         public bool IsSkuUnique(string sku, int? excludeId = null)
         {
             var query = _context.Products.Where(p => p.SKU.ToLower() == sku.ToLower().Trim());
@@ -49,14 +47,12 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
             return !query.Any();
         }
 
-        // ✅ الحصول على منتج بالاسم
         public Product GetByName(string name)
         {
             return _context.Products
                 .FirstOrDefault(p => p.Name.ToLower() == name.ToLower().Trim());
         }
 
-        // ✅ الحصول على منتج بالـ SKU
         public Product GetBySku(string sku)
         {
             return _context.Products
@@ -65,7 +61,6 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
 
         public void Add(Product product)
         {
-            // ✅ التحقق من التكرار قبل الإضافة
             if (!IsNameUnique(product.Name))
             {
                 throw new InvalidOperationException($"اسم المنتج '{product.Name}' موجود بالفعل في النظام");
@@ -85,13 +80,11 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
             var existingProduct = GetById(product.Id);
             if (existingProduct != null)
             {
-                // ✅ التحقق من التكرار قبل التحديث (إذا تغير الاسم)
                 if (existingProduct.Name != product.Name && !IsNameUnique(product.Name, product.Id))
                 {
                     throw new InvalidOperationException($"اسم المنتج '{product.Name}' موجود بالفعل في النظام");
                 }
 
-                // ✅ التحقق من التكرار قبل التحديث (إذا تغير الـ SKU)
                 if (existingProduct.SKU != product.SKU && !IsSkuUnique(product.SKU, product.Id))
                 {
                     throw new InvalidOperationException($"الكود '{product.SKU}' موجود بالفعل في النظام");

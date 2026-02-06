@@ -217,26 +217,26 @@
         <!-- شريط الأوامر العلوي -->
         <Border Grid.Row="0" Background="#F8F9FA" Padding="8,10" BorderThickness="0,0,0,1" BorderBrush="#E0E0E0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="فاتورة جديدة" Command="{Binding NewInvoiceCommand}" 
+                <Button Content="عرض أسعار جديد" Command="{Binding NewInvoiceCommand}" 
                         Background="#2ECC71" Foreground="White" Padding="10,6" 
                         FontSize="11" BorderThickness="0" Margin="0,0,5,0" 
                         Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"
-                        ToolTip="إنشاء فاتورة جديدة"/>
-                <Button Content="حفظ الفاتورة" Command="{Binding SaveInvoiceCommand}" 
+                        ToolTip="إنشاء عرض أسعار جديد"/>
+                <Button Content="حفظ عرض الأسعار" Command="{Binding SaveInvoiceCommand}" 
                         Background="#3498DB" Foreground="White" Padding="10,6" 
                         FontSize="11" BorderThickness="0" Margin="0,0,5,0" 
                         Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"
-                        ToolTip="حفظ الفاتورة الحالية"/>
+                        ToolTip="حفظ عرض الأسعار الحالي"/>
                 <Button Content="إلغاء" Command="{Binding CancelCommand}" 
                         Background="#95A5A6" Foreground="White" Padding="10,6" 
                         FontSize="11" BorderThickness="0" Margin="0,0,5,0" 
                         Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"
                         ToolTip="إلغاء التعديلات"/>
-                <Button Content="إكمال الفاتورة" Command="{Binding CompleteInvoiceCommand}" 
+                <Button Content="إكمال عرض الأسعار" Command="{Binding CompleteInvoiceCommand}" 
                         Background="#9B59B6" Foreground="White" Padding="10,6" 
                         FontSize="11" BorderThickness="0" 
                         Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}"
-                        ToolTip="إكمال الفاتورة وإنشاء PDF"/>
+                        ToolTip="إكمال عرض الأسعار وإنشاء PDF"/>
             </StackPanel>
         </Border>
 
@@ -264,7 +264,7 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <Border Grid.Row="0" Background="#34495E" Padding="8">
-                            <TextBlock Text="بنود الفاتورة" Foreground="White" 
+                            <TextBlock Text="بنود عرض الأسعار" Foreground="White" 
                                        FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
                         </Border>
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" 
@@ -369,7 +369,7 @@
                                             </Style>
                                         </DataGridTextColumn.EditingElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="الإجمالي بعد مكسب الفاتورة" 
+                                    <DataGridTextColumn Header="الإجمالي بعد مكسب العرض" 
                                                         Binding="{Binding LineTotal, StringFormat='0.00'}" 
                                                         Width="160" 
                                                         HeaderStyle="{StaticResource CenteredHeaderStyle}"
@@ -411,7 +411,7 @@
                         </Grid.RowDefinitions>
                         <Border Grid.Row="0" Background="#34495E" Padding="8" 
                                 Margin="0,-5,0,0">
-                            <TextBlock Text="الفواتير المسودة" Foreground="White" 
+                            <TextBlock Text="عروض الأسعار المسودة" Foreground="White" 
                                        FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
                         </Border>
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" 
@@ -564,7 +564,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="تاريخ الفاتورة" 
+                                <TextBlock Grid.Row="0" Text="تاريخ عرض الأسعار" 
                                            FontSize="14" FontWeight="Bold" 
                                            Foreground="#2C3E50" Margin="0,0,0,8"/>
                                 <Grid Grid.Row="1">
@@ -749,7 +749,7 @@
                                 </Grid.RowDefinitions>
 
                                 <!-- العنوان -->
-                                <TextBlock Grid.Row="0" Text="📊 ملخص الفاتورة التفصيلي" 
+                                <TextBlock Grid.Row="0" Text="📊 ملخص عرض الأسعار التفصيلي" 
                                            FontSize="14" FontWeight="Bold" 
                                            Foreground="#2C3E50" Margin="0,0,0,12" 
                                            HorizontalAlignment="Center"/>
@@ -765,7 +765,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="📈 مكسب الفاتورة:" 
+                                    <TextBlock Grid.Column="0" Text="📈 نسبة المكسب:" 
                                                Foreground="#2C3E50" FontSize="12" 
                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <TextBox Grid.Column="1" 
@@ -785,7 +785,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="🏷️ خصم الفاتورة:" 
+                                    <TextBlock Grid.Column="0" Text="🏷️ نسبة الخصم:" 
                                                Foreground="#2C3E50" FontSize="12" 
                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <TextBox Grid.Column="1" 
@@ -874,7 +874,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="100"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="مكسب الفاتورة:" 
+                                            <TextBlock Grid.Column="0" Text="مكسب عرض الأسعار:" 
                                                        Style="{StaticResource SummaryItemStyle}" 
                                                        Foreground="#27AE60"/>
                                             <TextBlock Grid.Column="1" 
@@ -885,16 +885,17 @@
 
                                         <Grid Margin="0,0,0,12">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="32*"/>
+                                                <ColumnDefinition Width="77*"/>
                                                 <ColumnDefinition Width="100"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="خصم الفاتورة:" 
+                                            <TextBlock Grid.Column="0" Text="خصم عرض الأسعار:" 
                                                        Style="{StaticResource SummaryItemStyle}" 
-                                                       Foreground="#E74C3C"/>
-                                            <TextBlock Grid.Column="1" 
+                                                       Foreground="#E74C3C" Grid.ColumnSpan="2"/>
+                                            <TextBlock Grid.Column="2" 
                                                        Text="{Binding InvoiceDiscountAmount, StringFormat='-0.00'}" 
                                                        Style="{StaticResource SummaryValueStyle}" 
-                                                       Foreground="#E74C3C"/>
+                                                       Foreground="#E74C3C" HorizontalAlignment="Left" Margin="100,0,0,0"/>
                                         </Grid>
                                     </StackPanel>
                                 </ScrollViewer>

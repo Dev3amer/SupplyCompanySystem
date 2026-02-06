@@ -99,7 +99,7 @@
                 <StackPanel Orientation="Vertical" FlowDirection="LeftToRight">
                     <!-- Menu Items - FlowDirection LeftToRight for icon on left side -->
                     <Button x:Name="NewInvoiceBtn"
-                            Content="📄 الفواتير الجديدة"
+                            Content="📄 عروض الأسعار الجديدة"
                             Background="Transparent"
                             Foreground="White"
                             Padding="15,15"
@@ -111,6 +111,18 @@
                             Tag="NewInvoice"
                             FlowDirection="LeftToRight"/>
 
+                    <Button x:Name="ArchiveBtn"
+                            Content="📋 عروض الأسعار المكتملة"
+                            Background="Transparent"
+                            Foreground="White"
+                            Padding="15,15"
+                            FontSize="14"
+                            HorizontalContentAlignment="Right"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="NavButton_Click"
+                            Tag="Archive"
+                            FlowDirection="LeftToRight"/>
                     <Button Content="👥 العملاء"
                             Background="Transparent"
                             Foreground="White"

@@ -10,7 +10,6 @@
         public string Description { get; set; }
         public DateTime CreatedDate { get; set; }
 
-        // ✅ جديد - للتعطيل بدل الحذف
         public bool IsActive { get; set; } = true;
 
         public Product()
