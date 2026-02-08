@@ -96,6 +96,7 @@ namespace SupplyCompanySystem.Domain.Entities
                 }
             }
         }
+
         public decimal OriginalUnitPrice
         {
             get => _originalUnitPrice;
@@ -108,6 +109,7 @@ namespace SupplyCompanySystem.Domain.Entities
                 }
             }
         }
+
         public decimal DiscountPercentage
         {
             get => _discountPercentage;
@@ -235,6 +237,7 @@ namespace SupplyCompanySystem.Domain.Entities
             OnPropertyChanged(nameof(ItemProfitAmount));
             OnPropertyChanged(nameof(PriceAfterProfit));
         }
+
         public void UpdateLineTotalWithInvoiceProfit(decimal invoiceProfitMarginPercentage)
         {
             decimal subtotalWithProductProfit = Quantity * UnitPrice;
@@ -248,6 +251,7 @@ namespace SupplyCompanySystem.Domain.Entities
             OnPropertyChanged(nameof(PriceAfterProfit));
             OnPropertyChanged(nameof(LineTotal));
         }
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)

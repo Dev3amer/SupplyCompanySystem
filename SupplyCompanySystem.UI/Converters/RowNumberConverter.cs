@@ -1,18 +1,14 @@
-﻿using SupplyCompanySystem.Domain.Entities;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows.Data;
 
 namespace SupplyCompanySystem.UI.Converters
 {
-    public class InvoiceStatusToBoolConverter : IValueConverter
+    public class RowNumberConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is Invoice invoice)
-            {
-                return invoice.Status == InvoiceStatus.Completed;
-            }
-            return false;
+            // سيتم حساب رقم الصف في Code-behind
+            return value;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

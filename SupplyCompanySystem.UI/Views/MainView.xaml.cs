@@ -78,14 +78,7 @@ namespace SupplyCompanySystem.UI.Views
 
         private void ShowReportsPage()
         {
-            ContentArea.Content = new TextBlock
-            {
-                Text = "صفحة التقارير",
-                FontSize = 20,
-                Foreground = System.Windows.Media.Brushes.Gray,
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
+            ContentArea.Content = new Views.ReportsView();
         }
 
         private void ShowSettingsPage()

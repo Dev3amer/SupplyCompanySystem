@@ -24,6 +24,10 @@ namespace SupplyCompanySystem.Application.Interfaces
 
         bool ReturnToDraft(int invoiceId);
 
+        // ✅ طرق جديدة محدثة
+        bool UpdateInvoiceStatus(int invoiceId, InvoiceStatus status);
+        bool UpdateInvoiceStatusAndDate(int invoiceId, InvoiceStatus status, DateTime? completedDate = null);
+
         void Add(Invoice invoice);
         void Update(Invoice invoice);
         void Delete(int id);

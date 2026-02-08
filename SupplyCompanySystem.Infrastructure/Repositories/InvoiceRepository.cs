@@ -2,6 +2,7 @@
 using SupplyCompanySystem.Application.Interfaces;
 using SupplyCompanySystem.Domain.Entities;
 using SupplyCompanySystem.Infrastructure.Data;
+using System.Diagnostics;
 
 namespace SupplyCompanySystem.Infrastructure.Repositories
 {
@@ -13,33 +14,38 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
         {
             _context = context;
         }
+
         public List<Invoice> GetAll()
         {
             return _context.Invoices
+                .AsNoTracking()
                 .Include(i => i.Customer)
                 .Include(i => i.Items)
-                .ThenInclude(ii => ii.Product)
+                    .ThenInclude(ii => ii.Product)
+                .OrderByDescending(i => i.InvoiceDate)
                 .ToList();
         }
 
         public Invoice GetById(int id)
         {
             return _context.Invoices
+                .AsNoTracking()
                 .Include(i => i.Customer)
+                .Include(i => i.Items)
+                    .ThenInclude(ii => ii.Product)
                 .FirstOrDefault(i => i.Id == id);
         }
 
         public Invoice GetByIdWithItems(int id)
         {
             return _context.Invoices
+                .AsNoTracking()
                 .Include(i => i.Customer)
                 .Include(i => i.Items)
-                .ThenInclude(ii => ii.Product)
+                    .ThenInclude(ii => ii.Product)
                 .FirstOrDefault(i => i.Id == id);
         }
 
-        // ⭐ دالة جديدة: الحصول على فواتير مكتملة مع Pagination
-        // ⭐ دالة جديدة: الحصول على فواتير مكتملة مع Pagination
         public (List<Invoice> Invoices, int TotalCount) GetCompletedInvoicesPaged(
             int pageNumber = 1,
             int pageSize = 50,
@@ -48,129 +54,323 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
             int? customerId = null,
             decimal? minAmount = null)
         {
-            // ⭐ التحقق من أن رقم الصفحة إيجابي
-            if (pageNumber < 1) pageNumber = 1;
+            var query = _context.Invoices
+                .AsNoTracking()
+                .Include(i => i.Customer)
+                .Where(i => i.Status == InvoiceStatus.Completed);
 
-            var query = BuildFilteredQuery(fromDate, toDate, customerId, minAmount);
+            if (fromDate.HasValue)
+                query = query.Where(i => i.InvoiceDate >= fromDate.Value);
 
-            // حساب العدد الإجمالي
+            if (toDate.HasValue)
+                query = query.Where(i => i.InvoiceDate <= toDate.Value);
+
+            if (customerId.HasValue && customerId.Value > 0)
+                query = query.Where(i => i.CustomerId == customerId.Value);
+
+            if (minAmount.HasValue)
+                query = query.Where(i => i.FinalAmount >= minAmount.Value);
+
             int totalCount = query.Count();
 
-            // ⭐ التحقق من أن رقم الصفحة لا يتجاوز عدد الصفحات المتاحة
-            int maxPageNumber = (int)Math.Ceiling(totalCount / (double)pageSize);
-            if (maxPageNumber < 1) maxPageNumber = 1;
-
-            if (pageNumber > maxPageNumber)
-            {
-                pageNumber = maxPageNumber;
-            }
-
-            // تطبيق Pagination فقط إذا كان هناك بيانات
-            List<Invoice> invoices;
-
-            if (totalCount == 0)
-            {
-                invoices = new List<Invoice>();
-            }
-            else
-            {
-                // ⭐ التأكد من أن SKIP ليس سالباً
-                int skip = (pageNumber - 1) * pageSize;
-                if (skip < 0) skip = 0;
-
-                invoices = query
-                    .OrderByDescending(i => i.CompletedDate ?? i.InvoiceDate)
-                    .Skip(skip)
-                    .Take(pageSize)
-                    .ToList();
-            }
+            var invoices = query
+                .OrderByDescending(i => i.InvoiceDate)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
 
             return (invoices, totalCount);
         }
 
-        // ⭐ دالة جديدة: الحصول على جميع الفواتير المفلترة (للتحدير)
         public List<Invoice> GetCompletedInvoicesFiltered(
             DateTime? fromDate = null,
             DateTime? toDate = null,
             int? customerId = null,
             decimal? minAmount = null)
         {
-            var query = BuildFilteredQuery(fromDate, toDate, customerId, minAmount);
-
-            return query
-                .OrderByDescending(i => i.CompletedDate ?? i.InvoiceDate)
-                .ToList();
-        }
-
-        // ⭐ دالة مساعدة لبناء استعلام الفلترة
-        private IQueryable<Invoice> BuildFilteredQuery(
-            DateTime? fromDate = null,
-            DateTime? toDate = null,
-            int? customerId = null,
-            decimal? minAmount = null)
-        {
             var query = _context.Invoices
+                .AsNoTracking()
                 .Include(i => i.Customer)
-                .Include(i => i.Items)
-                .ThenInclude(ii => ii.Product)
-                .Where(i => i.Status == InvoiceStatus.Completed)
-                .AsQueryable();
+                .Where(i => i.Status == InvoiceStatus.Completed);
 
-            // تطبيق الفلترة
             if (fromDate.HasValue)
-                query = query.Where(i => i.InvoiceDate.Date >= fromDate.Value.Date);
+                query = query.Where(i => i.InvoiceDate >= fromDate.Value);
 
             if (toDate.HasValue)
-                query = query.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
+                query = query.Where(i => i.InvoiceDate <= toDate.Value);
 
             if (customerId.HasValue && customerId.Value > 0)
                 query = query.Where(i => i.CustomerId == customerId.Value);
 
-            if (minAmount.HasValue && minAmount.Value > 0)
+            if (minAmount.HasValue)
                 query = query.Where(i => i.FinalAmount >= minAmount.Value);
 
-            return query;
+            return query.OrderByDescending(i => i.InvoiceDate).ToList();
         }
 
         public bool ReturnToDraft(int invoiceId)
         {
-            var invoice = GetByIdWithItems(invoiceId);
-            if (invoice == null || invoice.Status != InvoiceStatus.Completed)
+            try
+            {
+                DetachAllEntities();
+
+                var invoice = _context.Invoices
+                    .AsNoTracking()
+                    .FirstOrDefault(i => i.Id == invoiceId);
+
+                if (invoice == null) return false;
+
+                invoice.Status = InvoiceStatus.Draft;
+                invoice.CompletedDate = null;
+
+                _context.Attach(invoice);
+                _context.Entry(invoice).State = EntityState.Modified;
+                _context.SaveChanges();
+
+                return true;
+            }
+            catch
+            {
                 return false;
+            }
+        }
 
-            invoice.Status = InvoiceStatus.Draft;
-            invoice.CompletedDate = null;
-            _context.Invoices.Update(invoice);
-            SaveChanges();
+        // ✅ طريقة جديدة: تحديث حالة الفاتورة فقط
+        public bool UpdateInvoiceStatus(int invoiceId, InvoiceStatus status)
+        {
+            try
+            {
+                DetachAllEntities();
 
-            return true;
+                var invoice = _context.Invoices
+                    .AsNoTracking()
+                    .FirstOrDefault(i => i.Id == invoiceId);
+
+                if (invoice == null) return false;
+
+                var invoiceToUpdate = new Invoice
+                {
+                    Id = invoiceId,
+                    Status = status,
+                    CompletedDate = status == InvoiceStatus.Completed ? DateTime.Now : null
+                };
+
+                _context.Attach(invoiceToUpdate);
+                _context.Entry(invoiceToUpdate).Property(x => x.Status).IsModified = true;
+                _context.Entry(invoiceToUpdate).Property(x => x.CompletedDate).IsModified = true;
+
+                _context.SaveChanges();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"خطأ في تحديث حالة الفاتورة: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ✅ طريقة جديدة: تحديث حالة الفاتورة وتاريخ الإكمال
+        public bool UpdateInvoiceStatusAndDate(int invoiceId, InvoiceStatus status, DateTime? completedDate = null)
+        {
+            try
+            {
+                DetachAllEntities();
+
+                var invoice = _context.Invoices
+                    .AsNoTracking()
+                    .FirstOrDefault(i => i.Id == invoiceId);
+
+                if (invoice == null) return false;
+
+                var invoiceToUpdate = new Invoice
+                {
+                    Id = invoiceId,
+                    Status = status,
+                    CompletedDate = completedDate ?? (status == InvoiceStatus.Completed ? DateTime.Now : null)
+                };
+
+                _context.Attach(invoiceToUpdate);
+                _context.Entry(invoiceToUpdate).Property(x => x.Status).IsModified = true;
+                _context.Entry(invoiceToUpdate).Property(x => x.CompletedDate).IsModified = true;
+
+                _context.SaveChanges();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"خطأ في تحديث حالة الفاتورة: {ex.Message}");
+                return false;
+            }
         }
 
         public void Add(Invoice invoice)
         {
-            _context.Invoices.Add(invoice);
-            SaveChanges();
+            try
+            {
+                DetachAllEntities();
+
+                var newInvoice = new Invoice
+                {
+                    CustomerId = invoice.CustomerId,
+                    InvoiceDate = invoice.InvoiceDate,
+                    CreatedDate = DateTime.Now,
+                    Status = invoice.Status,
+                    TotalAmount = invoice.TotalAmount,
+                    FinalAmount = invoice.FinalAmount,
+                    Notes = invoice.Notes,
+                    ProfitMarginPercentage = invoice.ProfitMarginPercentage,
+                    InvoiceDiscountPercentage = invoice.InvoiceDiscountPercentage
+                };
+
+                _context.Invoices.Add(newInvoice);
+                _context.SaveChanges();
+
+                if (invoice.Items != null && invoice.Items.Any())
+                {
+                    foreach (var item in invoice.Items)
+                    {
+                        var invoiceItem = new InvoiceItem
+                        {
+                            InvoiceId = newInvoice.Id,
+                            ProductId = item.ProductId,
+                            Quantity = item.Quantity,
+                            UnitPrice = item.UnitPrice,
+                            OriginalUnitPrice = item.OriginalUnitPrice,
+                            DiscountPercentage = item.DiscountPercentage,
+                            ItemProfitMarginPercentage = item.ItemProfitMarginPercentage,
+                            LineTotal = item.LineTotal
+                        };
+                        _context.InvoiceItems.Add(invoiceItem);
+                    }
+                    _context.SaveChanges();
+                }
+
+                invoice.Id = newInvoice.Id;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"خطأ في إضافة الفاتورة: {ex.Message}");
+            }
         }
 
         public void Update(Invoice invoice)
         {
-            _context.Invoices.Update(invoice);
-            SaveChanges();
+            try
+            {
+                DetachAllEntities();
+
+                var existingInvoice = _context.Invoices
+                    .AsNoTracking()
+                    .Include(i => i.Items)
+                    .FirstOrDefault(i => i.Id == invoice.Id);
+
+                if (existingInvoice == null)
+                    throw new InvalidOperationException($"الفاتورة رقم {invoice.Id} غير موجودة");
+
+                var invoiceToUpdate = new Invoice
+                {
+                    Id = invoice.Id,
+                    CustomerId = invoice.CustomerId,
+                    InvoiceDate = invoice.InvoiceDate,
+                    CreatedDate = existingInvoice.CreatedDate,
+                    Status = invoice.Status,
+                    TotalAmount = invoice.TotalAmount,
+                    FinalAmount = invoice.FinalAmount,
+                    Notes = invoice.Notes,
+                    ProfitMarginPercentage = invoice.ProfitMarginPercentage,
+                    InvoiceDiscountPercentage = invoice.InvoiceDiscountPercentage,
+                    CompletedDate = invoice.Status == InvoiceStatus.Completed && existingInvoice.CompletedDate == null
+                        ? DateTime.Now
+                        : existingInvoice.CompletedDate
+                };
+
+                _context.Attach(invoiceToUpdate);
+                _context.Entry(invoiceToUpdate).State = EntityState.Modified;
+
+                var existingItems = _context.InvoiceItems
+                    .Where(ii => ii.InvoiceId == invoice.Id)
+                    .AsNoTracking()
+                    .ToList();
+
+                if (existingItems.Any())
+                {
+                    _context.Database.ExecuteSqlRaw("DELETE FROM InvoiceItems WHERE InvoiceId = {0}", invoice.Id);
+                }
+
+                if (invoice.Items != null && invoice.Items.Any())
+                {
+                    foreach (var item in invoice.Items)
+                    {
+                        var invoiceItem = new InvoiceItem
+                        {
+                            InvoiceId = invoice.Id,
+                            ProductId = item.ProductId,
+                            Quantity = item.Quantity,
+                            UnitPrice = item.UnitPrice,
+                            OriginalUnitPrice = item.OriginalUnitPrice,
+                            DiscountPercentage = item.DiscountPercentage,
+                            ItemProfitMarginPercentage = item.ItemProfitMarginPercentage,
+                            LineTotal = item.LineTotal
+                        };
+                        _context.InvoiceItems.Add(invoiceItem);
+                    }
+                }
+
+                _context.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"خطأ في تحديث الفاتورة: {ex.Message}");
+            }
         }
 
         public void Delete(int id)
         {
-            var invoice = GetById(id);
-            if (invoice != null)
+            try
             {
-                _context.Invoices.Remove(invoice);
-                SaveChanges();
+                DetachAllEntities();
+
+                var invoice = _context.Invoices
+                    .AsNoTracking()
+                    .FirstOrDefault(i => i.Id == id);
+
+                if (invoice != null)
+                {
+                    _context.Attach(invoice);
+                    _context.Invoices.Remove(invoice);
+                    _context.SaveChanges();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"خطأ في حذف الفاتورة: {ex.Message}");
             }
         }
 
         public void SaveChanges()
         {
             _context.SaveChanges();
+        }
+
+        private void DetachAllEntities()
+        {
+            try
+            {
+                var entries = _context.ChangeTracker.Entries().ToList();
+                foreach (var entry in entries)
+                {
+                    if (entry.Entity != null)
+                    {
+                        entry.State = EntityState.Detached;
+                    }
+                }
+
+                _context.ChangeTracker.Clear();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"خطأ في فصل الكائنات: {ex.Message}");
+            }
         }
     }
 }

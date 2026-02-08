@@ -1,18 +1,19 @@
-﻿using SupplyCompanySystem.Domain.Entities;
+﻿using SupplyCompanySystem.UI.ViewModels;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 
 namespace SupplyCompanySystem.UI.Converters
 {
-    public class InvoiceStatusToBoolConverter : IValueConverter
+    public class TopInvoiceCustomersVisibilityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is Invoice invoice)
+            if (value is ReportType reportType)
             {
-                return invoice.Status == InvoiceStatus.Completed;
+                return reportType == ReportType.TopInvoiceCustomers ? Visibility.Visible : Visibility.Collapsed;
             }
-            return false;
+            return Visibility.Collapsed;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -6,7 +6,6 @@ using SupplyCompanySystem.Infrastructure.Data;
 using SupplyCompanySystem.Infrastructure.Repositories;
 using SupplyCompanySystem.UI.ViewModels;
 using SupplyCompanySystem.UI.Views;
-using System.Windows.Navigation;
 
 namespace SupplyCompanySystem.UI.Services
 {
@@ -21,18 +20,26 @@ namespace SupplyCompanySystem.UI.Services
 
             _services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(
-                    configuration.GetConnectionString("DefaultConnection")));
+                    configuration.GetConnectionString("DefaultConnection"),
+                    sqlOptions =>
+                    {
+                        sqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 5,
+                            maxRetryDelay: TimeSpan.FromSeconds(30),
+                            errorNumbersToAdd: null);
+                    })
+                .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)); // ✅ إضافة هذا السطر
 
             _services.AddScoped<ICustomerRepository, CustomerRepository>();
             _services.AddScoped<IProductRepository, ProductRepository>();
             _services.AddScoped<IInvoiceRepository, InvoiceRepository>();
-
-            _services.AddSingleton<NavigationService>();
+            _services.AddScoped<IReportRepository, ReportRepository>();
 
             _services.AddTransient<CustomerViewModel>();
             _services.AddTransient<ProductViewModel>();
             _services.AddTransient<InvoiceViewModel>();
             _services.AddTransient<InvoiceArchiveViewModel>();
+            _services.AddTransient<ReportsViewModel>();
 
             _services.AddSingleton<MainView>();
 

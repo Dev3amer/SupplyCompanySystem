@@ -12,6 +12,9 @@ namespace SupplyCompanySystem.Application.Interfaces
         Product GetByName(string name);
         Product GetBySku(string sku);
 
+        // ✅ إضافة طريقة لجلب الفئات المميزة
+        List<string> GetDistinctCategories();
+
         void Add(Product product);
         void Update(Product product);
         void Delete(int id);

@@ -11,6 +11,11 @@ namespace SupplyCompanySystem.Infrastructure.Data
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
+            // ✅ إعداد NoTracking كإفتراضي
+            this.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+
+            // ✅ منع التتبع التلقائي للكائنات
+            this.ChangeTracker.AutoDetectChangesEnabled = false;
         }
 
         public DbSet<Customer> Customers { get; set; }
@@ -18,11 +23,20 @@ namespace SupplyCompanySystem.Infrastructure.Data
         public DbSet<Invoice> Invoices { get; set; }
         public DbSet<InvoiceItem> InvoiceItems { get; set; }
 
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                // ✅ إضافة تسجيل حساس للبيانات للمساعدة في التصحيح
+                optionsBuilder.EnableSensitiveDataLogging();
+                optionsBuilder.EnableDetailedErrors();
+            }
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // تكوين جدول العملاء
             modelBuilder.Entity<Customer>()
                 .HasKey(c => c.Id);
 
@@ -39,7 +53,6 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .Property(c => c.Address)
                 .HasMaxLength(200);
 
-            // تكوين جدول المنتجات
             modelBuilder.Entity<Product>()
                 .HasKey(p => p.Id);
 
@@ -72,7 +85,6 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .Property(p => p.IsActive)
                 .HasDefaultValue(true);
 
-            // تكوين جدول الفواتير
             modelBuilder.Entity<Invoice>()
                 .HasKey(i => i.Id);
 
@@ -105,7 +117,7 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .HasDefaultValueSql("GETDATE()");
 
             modelBuilder.Entity<Invoice>()
-                .Property(i => i.CompletedDate) // ⭐ إضافة تكوين الحقل الجديد
+                .Property(i => i.CompletedDate)
                 .IsRequired(false);
 
             modelBuilder.Entity<Invoice>()
@@ -118,7 +130,6 @@ namespace SupplyCompanySystem.Infrastructure.Data
                 .HasMaxLength(500)
                 .IsRequired(false);
 
-            // تكوين جدول بنود الفاتورة
             modelBuilder.Entity<InvoiceItem>()
                 .HasKey(ii => ii.Id);
 

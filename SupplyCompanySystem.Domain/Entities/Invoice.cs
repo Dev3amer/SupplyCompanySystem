@@ -5,9 +5,9 @@ namespace SupplyCompanySystem.Domain.Entities
 {
     public enum InvoiceStatus
     {
-        Draft,
-        Completed,
-        Cancelled
+        Draft = 0,
+        Completed = 1,
+        Cancelled = 2
     }
 
     public class Invoice : BaseEntity, INotifyPropertyChanged
@@ -23,7 +23,7 @@ namespace SupplyCompanySystem.Domain.Entities
         private string _notes;
         private decimal _profitMarginPercentage;
         private decimal _invoiceDiscountPercentage;
-        private DateTime? _completedDate; // ⭐ إضافة خاصية تاريخ الإكمال
+        private DateTime? _completedDate;
 
         public int CustomerId
         {
@@ -87,7 +87,6 @@ namespace SupplyCompanySystem.Domain.Entities
                     _status = value;
                     OnPropertyChanged();
 
-                    // ⭐ تحديث تاريخ الإكمال تلقائياً
                     if (value == InvoiceStatus.Completed && _completedDate == null)
                     {
                         CompletedDate = DateTime.Now;
@@ -100,7 +99,6 @@ namespace SupplyCompanySystem.Domain.Entities
             }
         }
 
-        // ⭐ خاصية جديدة: تاريخ الإكمال الأصلي
         public DateTime? CompletedDate
         {
             get => _completedDate;
@@ -203,7 +201,7 @@ namespace SupplyCompanySystem.Domain.Entities
             Items = new List<InvoiceItem>();
             ProfitMarginPercentage = 0;
             InvoiceDiscountPercentage = 0;
-            CompletedDate = null; // ⭐ تهيئة القيمة
+            CompletedDate = null;
         }
 
         public Invoice(DateTime invoiceDate)
@@ -214,7 +212,19 @@ namespace SupplyCompanySystem.Domain.Entities
             Items = new List<InvoiceItem>();
             ProfitMarginPercentage = 0;
             InvoiceDiscountPercentage = 0;
-            CompletedDate = null; // ⭐ تهيئة القيمة
+            CompletedDate = null;
+        }
+
+        // ✅ دالة مساعدة للتحديث الجزئي
+        public void UpdateStatus(InvoiceStatus newStatus, DateTime? completedDate = null)
+        {
+            Status = newStatus;
+            if (completedDate.HasValue)
+                CompletedDate = completedDate.Value;
+            else if (newStatus == InvoiceStatus.Completed)
+                CompletedDate = DateTime.Now;
+            else if (newStatus == InvoiceStatus.Draft)
+                CompletedDate = null;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
