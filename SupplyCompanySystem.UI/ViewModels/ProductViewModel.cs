@@ -47,9 +47,15 @@ namespace SupplyCompanySystem.UI.ViewModels
                 {
                     _currentPage = value;
                     OnPropertyChanged(nameof(CurrentPage));
+                    OnPropertyChanged(nameof(CanGoToPreviousPage));
+                    OnPropertyChanged(nameof(CanGoToNextPage));
                 }
             }
         }
+
+        // خصائص جديدة للتحكم في إمكانية التنقل بين الصفحات
+        public bool CanGoToPreviousPage => _currentPage > 1;
+        public bool CanGoToNextPage => _currentPage < _totalPages;
 
         // Form Fields
         private string _name;
@@ -103,8 +109,19 @@ namespace SupplyCompanySystem.UI.ViewModels
         public bool IsEditMode
         {
             get => _isEditMode;
-            set { _isEditMode = value; OnPropertyChanged(nameof(IsEditMode)); }
+            set
+            {
+                _isEditMode = value;
+                OnPropertyChanged(nameof(IsEditMode));
+                OnPropertyChanged(nameof(CanAdd)); // تحديث حالة زرار الإضافة
+                SaveCommand?.NotifyCanExecuteChanged();
+                CancelCommand?.NotifyCanExecuteChanged();
+                AddCommand?.NotifyCanExecuteChanged();
+            }
         }
+
+        // خاصية جديدة للتحكم في إمكانية الضغط على زر الإضافة
+        public bool CanAdd => !_isEditMode;
 
         public bool ShowInactiveProducts
         {
@@ -162,15 +179,15 @@ namespace SupplyCompanySystem.UI.ViewModels
             Categories = new ObservableCollection<string>();
             CategoriesForForm = new ObservableCollection<string>();
 
-            AddCommand = new RelayCommand(_ => Add());
+            AddCommand = new RelayCommand(_ => Add(), _ => CanAdd);
             EditCommand = new RelayCommand(_ => Edit(), _ => SelectedProduct != null);
             DeleteCommand = new RelayCommand(_ => Delete(), _ => SelectedProduct != null && SelectedProduct.IsActive);
             RestoreCommand = new RelayCommand(_ => Restore(), _ => SelectedProduct != null && !SelectedProduct.IsActive);
-            SaveCommand = new RelayCommand(_ => Save());
-            CancelCommand = new RelayCommand(_ => Cancel());
+            SaveCommand = new RelayCommand(_ => Save(), _ => IsEditMode);
+            CancelCommand = new RelayCommand(_ => Cancel(), _ => IsEditMode);
             ClearSearchCommand = new RelayCommand(_ => ClearSearch());
-            NextPageCommand = new RelayCommand(_ => NextPage());
-            PreviousPageCommand = new RelayCommand(_ => PreviousPage());
+            NextPageCommand = new RelayCommand(_ => NextPage(), _ => CanGoToNextPage);
+            PreviousPageCommand = new RelayCommand(_ => PreviousPage(), _ => CanGoToPreviousPage);
 
             LoadProductsFromDatabase();
         }
@@ -401,8 +418,22 @@ namespace SupplyCompanySystem.UI.ViewModels
         {
             _totalPages = _filteredProducts.Count > 0 ?
                 (_filteredProducts.Count + _pageSize - 1) / _pageSize : 1;
+
+            // التأكد من أن الصفحة الحالية لا تتجاوز العدد الإجمالي للصفحات
+            if (_currentPage > _totalPages && _totalPages > 0)
+                _currentPage = _totalPages;
+            else if (_currentPage < 1 && _totalPages > 0)
+                _currentPage = 1;
+
             OnPropertyChanged(nameof(PaginationText));
             OnPropertyChanged(nameof(TotalProductsText));
+            OnPropertyChanged(nameof(CanGoToPreviousPage));
+            OnPropertyChanged(nameof(CanGoToNextPage));
+
+            // إعادة تحميل حالة الأوامر
+            NextPageCommand?.NotifyCanExecuteChanged();
+            PreviousPageCommand?.NotifyCanExecuteChanged();
+
             DisplayCurrentPage();
         }
 
@@ -419,6 +450,10 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _currentPage++;
                 DisplayCurrentPage();
+                OnPropertyChanged(nameof(CanGoToPreviousPage));
+                OnPropertyChanged(nameof(CanGoToNextPage));
+                NextPageCommand?.NotifyCanExecuteChanged();
+                PreviousPageCommand?.NotifyCanExecuteChanged();
             }
         }
 
@@ -428,6 +463,10 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _currentPage--;
                 DisplayCurrentPage();
+                OnPropertyChanged(nameof(CanGoToPreviousPage));
+                OnPropertyChanged(nameof(CanGoToNextPage));
+                NextPageCommand?.NotifyCanExecuteChanged();
+                PreviousPageCommand?.NotifyCanExecuteChanged();
             }
         }
 

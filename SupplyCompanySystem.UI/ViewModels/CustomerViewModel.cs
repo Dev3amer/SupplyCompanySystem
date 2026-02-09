@@ -47,9 +47,15 @@ namespace SupplyCompanySystem.UI.ViewModels
                 {
                     _currentPage = value;
                     OnPropertyChanged(nameof(CurrentPage));
+                    OnPropertyChanged(nameof(CanGoToPreviousPage));
+                    OnPropertyChanged(nameof(CanGoToNextPage));
                 }
             }
         }
+
+        // خصائص جديدة للتحكم في إمكانية التنقل بين الصفحات
+        public bool CanGoToPreviousPage => _currentPage > 1;
+        public bool CanGoToNextPage => _currentPage < _totalPages;
 
         // Form Fields
         private string _name;
@@ -92,8 +98,19 @@ namespace SupplyCompanySystem.UI.ViewModels
         public bool IsEditMode
         {
             get => _isEditMode;
-            set { _isEditMode = value; OnPropertyChanged(nameof(IsEditMode)); }
+            set
+            {
+                _isEditMode = value;
+                OnPropertyChanged(nameof(IsEditMode));
+                OnPropertyChanged(nameof(CanAdd)); // تحديث حالة زرار الإضافة
+                SaveCommand?.NotifyCanExecuteChanged();
+                CancelCommand?.NotifyCanExecuteChanged();
+                AddCommand?.NotifyCanExecuteChanged();
+            }
         }
+
+        // خاصية جديدة للتحكم في إمكانية الضغط على زر الإضافة
+        public bool CanAdd => !_isEditMode;
 
         public bool ShowInactiveCustomers
         {
@@ -128,15 +145,15 @@ namespace SupplyCompanySystem.UI.ViewModels
             _repository = repository;
             Customers = new ObservableCollection<Customer>();
 
-            AddCommand = new RelayCommand(_ => Add());
+            AddCommand = new RelayCommand(_ => Add(), _ => CanAdd);
             EditCommand = new RelayCommand(_ => Edit(), _ => SelectedCustomer != null);
             DeleteCommand = new RelayCommand(_ => Delete(), _ => SelectedCustomer != null && SelectedCustomer.IsActive);
             RestoreCommand = new RelayCommand(_ => Restore(), _ => SelectedCustomer != null && !SelectedCustomer.IsActive);
-            SaveCommand = new RelayCommand(_ => Save());
-            CancelCommand = new RelayCommand(_ => Cancel());
+            SaveCommand = new RelayCommand(_ => Save(), _ => IsEditMode);
+            CancelCommand = new RelayCommand(_ => Cancel(), _ => IsEditMode);
             ClearSearchCommand = new RelayCommand(_ => ClearSearch());
-            NextPageCommand = new RelayCommand(_ => NextPage());
-            PreviousPageCommand = new RelayCommand(_ => PreviousPage());
+            NextPageCommand = new RelayCommand(_ => NextPage(), _ => CanGoToNextPage);
+            PreviousPageCommand = new RelayCommand(_ => PreviousPage(), _ => CanGoToPreviousPage);
 
             LoadCustomersFromDatabase();
         }
@@ -156,8 +173,16 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void Add() { IsEditMode = true; ClearForm(); }
-        private void Edit() { if (SelectedCustomer != null) IsEditMode = true; }
+        private void Add()
+        {
+            IsEditMode = true;
+            ClearForm();
+        }
+
+        private void Edit()
+        {
+            if (SelectedCustomer != null) IsEditMode = true;
+        }
 
         private void Save()
         {
@@ -196,7 +221,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                     };
                     _repository.Add(newCustomer);
                     _allCustomers.Add(newCustomer);
-                    MessageBox.Show("تم إضافة العميل بنجاح");
+                    MessageBox.Show("تم إضافة العميل بنجاح", "نجاح", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else
                 {
@@ -204,7 +229,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                     SelectedCustomer.PhoneNumber = PhoneNumber;
                     SelectedCustomer.Address = Address;
                     _repository.Update(SelectedCustomer);
-                    MessageBox.Show("تم تحديث العميل بنجاح");
+                    MessageBox.Show("تم تحديث العميل بنجاح", "نجاح", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
 
                 IsEditMode = false;
@@ -220,35 +245,45 @@ namespace SupplyCompanySystem.UI.ViewModels
         private void Delete()
         {
             if (SelectedCustomer == null) return;
-            if (MessageBox.Show("هل تريد تعطيل العميل؟", "تأكيد", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            if (MessageBox.Show("هل تريد تعطيل العميل؟", "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
                 SelectedCustomer.IsActive = false;
                 _repository.Update(SelectedCustomer);
                 FilterCustomers();
                 ClearForm();
+                MessageBox.Show("تم تعطيل العميل بنجاح", "نجاح", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private void Restore()
         {
             if (SelectedCustomer == null) return;
-            SelectedCustomer.IsActive = true;
-            _repository.Update(SelectedCustomer);
-            FilterCustomers();
-            ClearForm();
+            if (MessageBox.Show("هل تريد استرجاع العميل؟", "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                SelectedCustomer.IsActive = true;
+                _repository.Update(SelectedCustomer);
+                FilterCustomers();
+                ClearForm();
+                MessageBox.Show("تم استرجاع العميل بنجاح", "نجاح", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         private void FilterCustomers()
         {
             var query = _allCustomers.AsEnumerable();
 
-            if (_showInactiveCustomers) query = query.Where(c => !c.IsActive);
-            else query = query.Where(c => c.IsActive);
+            if (_showInactiveCustomers)
+                query = query.Where(c => !c.IsActive);
+            else
+                query = query.Where(c => c.IsActive);
 
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
                 var s = SearchText.ToLower();
-                query = query.Where(c => c.Name.ToLower().Contains(s) || c.PhoneNumber.ToLower().Contains(s) || c.Address.ToLower().Contains(s));
+                query = query.Where(c =>
+                    c.Name.ToLower().Contains(s) ||
+                    c.PhoneNumber.ToLower().Contains(s) ||
+                    c.Address.ToLower().Contains(s));
             }
 
             _filteredCustomers = query.ToList();
@@ -258,9 +293,24 @@ namespace SupplyCompanySystem.UI.ViewModels
 
         private void RefreshPagination()
         {
-            _totalPages = _filteredCustomers.Count > 0 ? (_filteredCustomers.Count + _pageSize - 1) / _pageSize : 1;
+            _totalPages = _filteredCustomers.Count > 0 ?
+                (_filteredCustomers.Count + _pageSize - 1) / _pageSize : 1;
+
+            // التأكد من أن الصفحة الحالية لا تتجاوز العدد الإجمالي للصفحات
+            if (_currentPage > _totalPages && _totalPages > 0)
+                _currentPage = _totalPages;
+            else if (_currentPage < 1 && _totalPages > 0)
+                _currentPage = 1;
+
             OnPropertyChanged(nameof(PaginationText));
             OnPropertyChanged(nameof(TotalCustomersText));
+            OnPropertyChanged(nameof(CanGoToPreviousPage));
+            OnPropertyChanged(nameof(CanGoToNextPage));
+
+            // إعادة تحميل حالة الأوامر
+            NextPageCommand?.NotifyCanExecuteChanged();
+            PreviousPageCommand?.NotifyCanExecuteChanged();
+
             DisplayCurrentPage();
         }
 
@@ -271,10 +321,42 @@ namespace SupplyCompanySystem.UI.ViewModels
             foreach (var item in items) Customers.Add(item);
         }
 
-        private void NextPage() { if (_currentPage < _totalPages) { _currentPage++; DisplayCurrentPage(); } }
-        private void PreviousPage() { if (_currentPage > 1) { _currentPage--; DisplayCurrentPage(); } }
-        private void ClearSearch() { SearchText = string.Empty; }
-        private void Cancel() { IsEditMode = false; ClearForm(); }
+        private void NextPage()
+        {
+            if (_currentPage < _totalPages)
+            {
+                _currentPage++;
+                DisplayCurrentPage();
+                OnPropertyChanged(nameof(CanGoToPreviousPage));
+                OnPropertyChanged(nameof(CanGoToNextPage));
+                NextPageCommand?.NotifyCanExecuteChanged();
+                PreviousPageCommand?.NotifyCanExecuteChanged();
+            }
+        }
+
+        private void PreviousPage()
+        {
+            if (_currentPage > 1)
+            {
+                _currentPage--;
+                DisplayCurrentPage();
+                OnPropertyChanged(nameof(CanGoToPreviousPage));
+                OnPropertyChanged(nameof(CanGoToNextPage));
+                NextPageCommand?.NotifyCanExecuteChanged();
+                PreviousPageCommand?.NotifyCanExecuteChanged();
+            }
+        }
+
+        private void ClearSearch()
+        {
+            SearchText = string.Empty;
+        }
+
+        private void Cancel()
+        {
+            IsEditMode = false;
+            ClearForm();
+        }
 
         private void ClearForm()
         {

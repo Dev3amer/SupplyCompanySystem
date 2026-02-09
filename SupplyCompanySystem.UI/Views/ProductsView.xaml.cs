@@ -5,8 +5,10 @@ using SupplyCompanySystem.Domain.Entities;
 using SupplyCompanySystem.UI.Services;
 using SupplyCompanySystem.UI.ViewModels;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace SupplyCompanySystem.UI.Views
 {
@@ -32,9 +34,107 @@ namespace SupplyCompanySystem.UI.Views
             {
                 _viewModel.PropertyChanged += ViewModel_PropertyChanged;
             }
+
+            // ✅ إضافة معالج حدث للنقر في أي مكان في الـ UserControl
+            this.MouseDown += ProductsView_MouseDown;
+            this.Loaded += ProductsView_Loaded;
         }
 
-        private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e) { }
+        private void ProductsView_Loaded(object sender, RoutedEventArgs e)
+        {
+            // ✅ إضافة معالج حدث للنقر في النافذة الرئيسية أيضاً
+            var mainWindow = Window.GetWindow(this);
+            if (mainWindow != null)
+            {
+                mainWindow.PreviewMouseDown += MainWindow_PreviewMouseDown;
+            }
+        }
+
+        private void ProductsView_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            ClearProductSelection(e);
+        }
+
+        private void MainWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            ClearProductSelection(e);
+        }
+
+        /// <summary>
+        /// ✅ مسح تحديد المنتج إذا تم النقر خارج الجدول
+        /// </summary>
+        private void ClearProductSelection(MouseButtonEventArgs e)
+        {
+            try
+            {
+                // ✅ التحقق مما إذا كان النقر داخل الجدول
+                if (ProductsDataGrid.IsMouseOver || IsMouseOverFormControls(e))
+                {
+                    return; // لا تمسح التحديد إذا النقر داخل الجدول أو عناصر النموذج
+                }
+
+                // ✅ مسح التحديد إذا تم النقر خارج الجدول وعناصر النموذج
+                if (_viewModel != null && _viewModel.SelectedProduct != null && !_viewModel.IsEditMode)
+                {
+                    // مسح التحديد فقط إذا لم نكن في وضع التحرير
+                    _viewModel.SelectedProduct = null;
+                    ProductsDataGrid.UnselectAll();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"خطأ في مسح التحديد: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ التحقق مما إذا كان النقر داخل عناصر تحكم النموذج
+        /// </summary>
+        private bool IsMouseOverFormControls(MouseButtonEventArgs e)
+        {
+            try
+            {
+                var mousePos = e.GetPosition(this);
+
+                // ✅ التحقق من عناصر النموذج التي يجب ألا تمسح التحديد
+                var formElements = new List<UIElement>
+                {
+                    AddBtn, EditBtn, DeleteBtn, RestoreBtn, SaveBtn, CancelBtn
+                };
+
+                // ✅ الحصول على إحداثيات كل عنصر
+                foreach (var element in formElements)
+                {
+                    if (element != null && element.IsVisible)
+                    {
+                        var bounds = new Rect(
+                            element.TranslatePoint(new Point(0, 0), this),
+                            new Size(element.RenderSize.Width, element.RenderSize.Height));
+
+                        if (bounds.Contains(mousePos))
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            // ✅ تحديث حالة الأزرار عند تغيير التحديد
+            if (e.PropertyName == nameof(_viewModel.SelectedProduct))
+            {
+                // تحديث حالة الأزرار
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
 
         #region Category Dialog Logic
 
@@ -242,6 +342,16 @@ namespace SupplyCompanySystem.UI.Views
         public void Dispose()
         {
             if (_viewModel != null) _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+
+            // ✅ إزالة معالجات الأحداث
+            this.MouseDown -= ProductsView_MouseDown;
+            this.Loaded -= ProductsView_Loaded;
+
+            var mainWindow = Window.GetWindow(this);
+            if (mainWindow != null)
+            {
+                mainWindow.PreviewMouseDown -= MainWindow_PreviewMouseDown;
+            }
         }
     }
 }

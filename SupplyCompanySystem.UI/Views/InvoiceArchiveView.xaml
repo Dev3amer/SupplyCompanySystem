@@ -61,6 +61,161 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
         </Style>
+
+        <!-- ✅ أنماط الجدول مثل صفحة المنتجات -->
+        <Style x:Key="CenteredCellStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="4"/>
+        </Style>
+
+        <Style x:Key="RightAlignedCellStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="8,0"/>
+            <Setter Property="Padding" Value="4"/>
+        </Style>
+
+        <Style x:Key="CenteredHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="BorderBrush" Value="#2C3E50"/>
+            <Setter Property="Background" Value="#34495E"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Height" Value="32"/>
+        </Style>
+
+        <Style x:Key="NoPaddingDataGrid" TargetType="DataGrid">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="SelectionMode" Value="Single"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="Background" Value="#F5F7FA"/>
+            <Setter Property="AlternatingRowBackground" Value="#FFFFFF"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#E0E0E0"/>
+            <Setter Property="VerticalGridLinesBrush" Value="#E0E0E0"/>
+            <Setter Property="GridLinesVisibility" Value="All"/>
+            <Setter Property="CellStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Padding" Value="4"/>
+                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                        <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Grid Background="{TemplateBinding Background}">
+                                        <Border BorderBrush="{TemplateBinding BorderBrush}" 
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      Margin="0"/>
+                                        </Border>
+                                    </Grid>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#2980B9"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="BorderBrush" Value="#1A5490"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="True"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Background" Value="#1F618D"/>
+                                <Setter Property="Foreground" Value="#1A1A1A"/>
+                            </MultiTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FFC107"/>
+                                <Setter Property="Foreground" Value="#1A1A1A"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="RowStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="#FFFFFF"/>
+                        <Setter Property="BorderBrush" Value="Transparent"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="MinHeight" Value="32"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#2980B9"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FFC107"/>
+                                <Setter Property="Foreground" Value="#1A1A1A"/>
+                            </Trigger>
+                            <Trigger Property="AlternationIndex" Value="0">
+                                <Setter Property="Background" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="AlternationIndex" Value="1">
+                                <Setter Property="Background" Value="#F8F9FA"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ColumnHeaderStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#34495E"/>
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="FontWeight" Value="Bold"/>
+                        <Setter Property="FontSize" Value="11"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="BorderBrush" Value="#2C3E50"/>
+                        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                        <Setter Property="Padding" Value="8,6"/>
+                        <Setter Property="Height" Value="32"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridColumnHeader">
+                                    <Grid>
+                                        <Border Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      RecognizesAccessKey="True"/>
+                                        </Border>
+                                    </Grid>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ✅ نمط بسيط لـ Border -->
+        <Style x:Key="TableBorderStyle" TargetType="Border">
+            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -123,44 +278,128 @@
             </Grid>
         </Border>
 
-        <!-- ============ جدول الفواتير ============ -->
-        <DataGrid x:Name="ArchiveDataGrid"
-                  Grid.Row="1" 
-                  ItemsSource="{Binding CompletedInvoices}"
-                  SelectedItem="{Binding SelectedInvoice, Mode=TwoWay}"
-                  AutoGenerateColumns="False"
-                  RowHeight="40"
-                  Margin="15,10,15,10"
-                  SelectionMode="Single"
-                  SelectionUnit="FullRow"
-                  PreviewMouseDown="DataGrid_PreviewMouseDown">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="رقم مسلسل" Binding="{Binding Id}" Width="100" IsReadOnly="True"/>
-                <DataGridTextColumn Header="اسم العميل" Binding="{Binding Customer.Name}" Width="170" IsReadOnly="True"/>
-                <DataGridTextColumn Header="التاريخ فى عرض الأسعار" Binding="{Binding InvoiceDate, StringFormat='yyyy/MM/dd'}" Width="140" IsReadOnly="True"/>
-                <DataGridTextColumn Header="تاريخ الإكمال" Width="140" IsReadOnly="True">
-                    <DataGridTextColumn.Binding>
-                        <Binding Path="CompletedDate" StringFormat="yyyy/MM/dd HH:mm">
-                            <Binding.TargetNullValue>
-                                <sys:String>--</sys:String>
-                            </Binding.TargetNullValue>
-                        </Binding>
-                    </DataGridTextColumn.Binding>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="الإجمالي قبل الخصم" Binding="{Binding TotalAmount, StringFormat='0.00'}" Width="140" IsReadOnly="True"/>
-                <DataGridTextColumn Header="قيمة الخصم" Binding="{Binding InvoiceDiscountAmount, StringFormat='0.00'}" Width="100" IsReadOnly="True"/>
-                <DataGridTextColumn Header="الإجمالي النهائي" Binding="{Binding FinalAmount, StringFormat='0.00'}" Width="140" IsReadOnly="True"/>
-                <DataGridTextColumn Header="الحالة" Width="90" IsReadOnly="True">
-                    <DataGridTextColumn.Binding>
-                        <Binding Path="Status">
-                            <Binding.Converter>
-                                <local:StatusToStringConverter/>
-                            </Binding.Converter>
-                        </Binding>
-                    </DataGridTextColumn.Binding>
-                </DataGridTextColumn>
-            </DataGrid.Columns>
-        </DataGrid>
+        <!-- ============ جدول الفواتير - محاط بحدود مثل صفحة المنتجات ============ -->
+        <Border Grid.Row="1" Style="{StaticResource TableBorderStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <!-- رأس الجدول بلون أزرق داكن مثل صفحة المنتجات -->
+                <Border Grid.Row="0" Background="#34495E" Padding="8">
+                    <TextBlock Text="📋 الأرشيف - عروض الأسعار المكتملة" 
+                               Foreground="White" 
+                               FontSize="13" FontWeight="Bold" 
+                               HorizontalAlignment="Center"/>
+                </Border>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" 
+                              HorizontalScrollBarVisibility="Auto" CanContentScroll="True">
+                    <DataGrid x:Name="ArchiveDataGrid"
+                              ItemsSource="{Binding CompletedInvoices}"
+                              SelectedItem="{Binding SelectedInvoice, Mode=TwoWay}"
+                              AutoGenerateColumns="False"
+                              RowHeight="32"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              IsReadOnly="True"
+                              Style="{StaticResource NoPaddingDataGrid}"
+                              ColumnHeaderHeight="32"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              PreviewMouseDown="DataGrid_PreviewMouseDown">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="رقم مسلسل" 
+                                                Binding="{Binding Id}" 
+                                                Width="100"
+                                                HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="اسم العميل" 
+                                                Binding="{Binding Customer.Name}" 
+                                                Width="170"
+                                                HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource RightAlignedCellStyle}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="التاريخ" 
+                                                Binding="{Binding InvoiceDate, StringFormat='yyyy/MM/dd'}" 
+                                                Width="140"
+                                                HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="تاريخ الإكمال" 
+                                                Width="160"
+                                                HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                <DataGridTextColumn.Binding>
+                                    <Binding Path="CompletedDate" StringFormat="yyyy/MM/dd HH:mm">
+                                        <Binding.TargetNullValue>
+                                            <sys:String>--</sys:String>
+                                        </Binding.TargetNullValue>
+                                    </Binding>
+                                </DataGridTextColumn.Binding>
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="الإجمالي قبل" 
+                                                Binding="{Binding TotalAmount, StringFormat='0.00'}" 
+                                                Width="130"
+                                                HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                        <Setter Property="Foreground" Value="#27AE60"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="الخصم" 
+                                                Binding="{Binding InvoiceDiscountAmount, StringFormat='0.00'}" 
+                                                Width="100"
+                                                HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                        <Setter Property="Foreground" Value="#E74C3C"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="الإجمالي النهائي" 
+                                                Binding="{Binding FinalAmount, StringFormat='0.00'}" 
+                                                Width="140"
+                                                HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                        <Setter Property="Foreground" Value="#2980B9"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="الحالة" 
+                                                Width="90"
+                                                HeaderStyle="{StaticResource CenteredHeaderStyle}">
+                                <DataGridTextColumn.Binding>
+                                    <Binding Path="Status">
+                                        <Binding.Converter>
+                                            <local:StatusToStringConverter/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </DataGridTextColumn.Binding>
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellStyle}">
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </ScrollViewer>
+            </Grid>
+        </Border>
 
         <!-- ============ Pagination ============ -->
         <Border Grid.Row="2" Background="#F8F9FA" Padding="10" 
@@ -294,6 +533,9 @@
                             Margin="0,0,10,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource ExportButtonStyle}">
+                                <Setter Property="Width" Value="200"/>
+                                <Setter Property="Height" Value="36"/>
+                                <Setter Property="FontSize" Value="11"/>
                                 <Setter Property="Background" Value="#95A5A6"/>
                                 <Setter Property="Cursor" Value="No"/>
                                 <Setter Property="Opacity" Value="0.6"/>
@@ -324,6 +566,9 @@
                             Margin="0,0,10,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource ExportButtonStyle}">
+                                <Setter Property="Width" Value="200"/>
+                                <Setter Property="Height" Value="36"/>
+                                <Setter Property="FontSize" Value="11"/>
                                 <Setter Property="Background" Value="#BDC3C7"/>
                                 <Setter Property="Cursor" Value="No"/>
                                 <Setter Property="Opacity" Value="0.6"/>
@@ -358,6 +603,9 @@
                             Margin="0,0,10,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource ExportButtonStyle}">
+                                <Setter Property="Width" Value="200"/>
+                                <Setter Property="Height" Value="36"/>
+                                <Setter Property="FontSize" Value="11"/>
                                 <Setter Property="Background" Value="#27AE60"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Opacity" Value="1"/>
@@ -382,6 +630,9 @@
                             Margin="0,0,5,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource ExportButtonStyle}">
+                                <Setter Property="Width" Value="200"/>
+                                <Setter Property="Height" Value="36"/>
+                                <Setter Property="FontSize" Value="11"/>
                                 <Setter Property="Background" Value="#9B59B6"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Opacity" Value="1"/>

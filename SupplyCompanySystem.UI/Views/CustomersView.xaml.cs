@@ -1,15 +1,17 @@
 ﻿using Microsoft.Win32;
 using QuestPDF.Fluent;
+using QuestPDF.Helpers;
 using SupplyCompanySystem.Domain.Entities;
 using SupplyCompanySystem.UI.Services;
 using SupplyCompanySystem.UI.ViewModels;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace SupplyCompanySystem.UI.Views
 {
-
     public partial class CustomersView : UserControl, IDisposable
     {
         private CustomerViewModel _viewModel;
@@ -25,9 +27,107 @@ namespace SupplyCompanySystem.UI.Views
             {
                 _viewModel.PropertyChanged += ViewModel_PropertyChanged;
             }
+
+            // ✅ إضافة معالج حدث للنقر في أي مكان في الـ UserControl
+            this.MouseDown += CustomersView_MouseDown;
+            this.Loaded += CustomersView_Loaded;
         }
 
-        private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e) { }
+        private void CustomersView_Loaded(object sender, RoutedEventArgs e)
+        {
+            // ✅ إضافة معالج حدث للنقر في النافذة الرئيسية أيضاً
+            var mainWindow = Window.GetWindow(this);
+            if (mainWindow != null)
+            {
+                mainWindow.PreviewMouseDown += MainWindow_PreviewMouseDown;
+            }
+        }
+
+        private void CustomersView_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            ClearCustomerSelection(e);
+        }
+
+        private void MainWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            ClearCustomerSelection(e);
+        }
+
+        /// <summary>
+        /// ✅ مسح تحديد العميل إذا تم النقر خارج الجدول
+        /// </summary>
+        private void ClearCustomerSelection(MouseButtonEventArgs e)
+        {
+            try
+            {
+                // ✅ التحقق مما إذا كان النقر داخل الجدول
+                if (CustomersDataGrid.IsMouseOver || IsMouseOverFormControls(e))
+                {
+                    return; // لا تمسح التحديد إذا النقر داخل الجدول أو عناصر النموذج
+                }
+
+                // ✅ مسح التحديد إذا تم النقر خارج الجدول وعناصر النموذج
+                if (_viewModel != null && _viewModel.SelectedCustomer != null && !_viewModel.IsEditMode)
+                {
+                    // مسح التحديد فقط إذا لم نكن في وضع التحرير
+                    _viewModel.SelectedCustomer = null;
+                    CustomersDataGrid.UnselectAll();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"خطأ في مسح التحديد: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ التحقق مما إذا كان النقر داخل عناصر تحكم النموذج
+        /// </summary>
+        private bool IsMouseOverFormControls(MouseButtonEventArgs e)
+        {
+            try
+            {
+                var mousePos = e.GetPosition(this);
+
+                // ✅ التحقق من عناصر النموذج التي يجب ألا تمسح التحديد
+                var formElements = new List<UIElement>
+                {
+                    AddBtn, EditBtn, DeleteBtn, RestoreBtn, SaveBtn, CancelBtn
+                };
+
+                // ✅ الحصول على إحداثيات كل عنصر
+                foreach (var element in formElements)
+                {
+                    if (element != null && element.IsVisible)
+                    {
+                        var bounds = new Rect(
+                            element.TranslatePoint(new Point(0, 0), this),
+                            new Size(element.RenderSize.Width, element.RenderSize.Height));
+
+                        if (bounds.Contains(mousePos))
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            // ✅ تحديث حالة الأزرار عند تغيير التحديد
+            if (e.PropertyName == nameof(_viewModel.SelectedCustomer))
+            {
+                // تحديث حالة الأزرار
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
 
         #region Export Logic
 
@@ -133,7 +233,7 @@ namespace SupplyCompanySystem.UI.Views
             {
                 container.Page(page =>
                 {
-                    page.Size(QuestPDF.Helpers.PageSizes.A4);
+                    page.Size(PageSizes.A4);
                     page.Margin(1, QuestPDF.Infrastructure.Unit.Centimetre);
                     page.ContentFromRightToLeft();
                     page.Header().Text("تقرير العملاء").FontSize(20).SemiBold().AlignCenter();
@@ -172,6 +272,16 @@ namespace SupplyCompanySystem.UI.Views
         public void Dispose()
         {
             if (_viewModel != null) _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+
+            // ✅ إزالة معالجات الأحداث
+            this.MouseDown -= CustomersView_MouseDown;
+            this.Loaded -= CustomersView_Loaded;
+
+            var mainWindow = Window.GetWindow(this);
+            if (mainWindow != null)
+            {
+                mainWindow.PreviewMouseDown -= MainWindow_PreviewMouseDown;
+            }
         }
     }
 }
