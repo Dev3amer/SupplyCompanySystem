@@ -21,6 +21,17 @@ namespace SupplyCompanySystem.UI.Views
 
             _viewModel = new ReportsViewModel(reportRepository, customerRepository, productRepository);
             this.DataContext = _viewModel;
+
+            Loaded += OnLoaded;
+        }
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            // إلغاء أي عمليات سابقة عند تحميل الصفحة
+            if (_viewModel != null)
+            {
+                _viewModel.Dispose();
+            }
         }
 
         private void UserControl_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -118,10 +129,7 @@ namespace SupplyCompanySystem.UI.Views
             {
                 if (_viewModel != null)
                 {
-                    if (_viewModel is System.IDisposable disposable)
-                    {
-                        disposable.Dispose();
-                    }
+                    _viewModel.Dispose();
                     _viewModel = null;
                 }
 

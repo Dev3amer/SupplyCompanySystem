@@ -41,10 +41,18 @@ namespace SupplyCompanySystem.UI.ViewModels
         private bool _isLoading;
         private bool _hasReportData;
 
+        // Cache للتقارير
+        private readonly Dictionary<string, object> _reportCache = new Dictionary<string, object>();
+        private DateTime _lastCacheTime;
+        private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(2);
+
         // مؤقت لتأخير إنشاء التقرير (Debouncing)
         private System.Threading.Timer _reportGenerationTimer;
         private readonly object _timerLock = new object();
-        private const int GENERATION_DELAY_MS = 500;
+        private const int GENERATION_DELAY_MS = 300;
+
+        // Cancelation token لإلغاء العمليات السابقة
+        private System.Threading.CancellationTokenSource _currentCts;
 
         public DateTime FromDate
         {
@@ -289,9 +297,13 @@ namespace SupplyCompanySystem.UI.ViewModels
         {
             lock (_timerLock)
             {
+                // Cancel any previous operation
+                _currentCts?.Cancel();
+                _currentCts = new System.Threading.CancellationTokenSource();
+
                 _reportGenerationTimer?.Dispose();
                 _reportGenerationTimer = new System.Threading.Timer(
-                    _ => GenerateReportInternal(),
+                    _ => GenerateReportInternal(_currentCts.Token),
                     null,
                     GENERATION_DELAY_MS,
                     System.Threading.Timeout.Infinite
@@ -299,9 +311,12 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void GenerateReportInternal()
+        private async void GenerateReportInternal(System.Threading.CancellationToken cancellationToken)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 try
                 {
@@ -310,42 +325,52 @@ namespace SupplyCompanySystem.UI.ViewModels
 
                     ClearAllReports();
 
+                    if (cancellationToken.IsCancellationRequested)
+                        return;
+
                     switch (SelectedReportType)
                     {
                         case ReportType.Summary:
-                            LoadSalesSummary();
+                            await LoadSalesSummaryAsync(cancellationToken);
                             break;
 
                         case ReportType.TopProducts:
-                            LoadTopProducts();
+                            await LoadTopProductsAsync(cancellationToken);
                             break;
 
                         case ReportType.LeastProducts:
-                            LoadLeastProducts();
+                            await LoadLeastProductsAsync(cancellationToken);
                             break;
 
                         case ReportType.TopPayingCustomers:
-                            LoadTopPayingCustomers();
+                            await LoadTopPayingCustomersAsync(cancellationToken);
                             break;
 
                         case ReportType.TopInvoiceCustomers:
-                            LoadTopInvoiceCustomers();
+                            await LoadTopInvoiceCustomersAsync(cancellationToken);
                             break;
 
                         case ReportType.DailySales:
-                            LoadDailySales();
+                            await LoadDailySalesAsync(cancellationToken);
                             break;
 
                         case ReportType.MonthlySales:
-                            LoadMonthlySales();
+                            await LoadMonthlySalesAsync(cancellationToken);
                             break;
 
                         case ReportType.Inventory:
-                            LoadInventoryReport();
+                            await LoadInventoryReportAsync(cancellationToken);
                             break;
                     }
 
-                    HasReportData = HasReportDataMethod();
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        HasReportData = HasReportDataMethod();
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // تم إلغاء العملية عمداً
                 }
                 catch (Exception ex)
                 {
@@ -357,14 +382,17 @@ namespace SupplyCompanySystem.UI.ViewModels
                 }
                 finally
                 {
-                    IsLoading = false;
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        IsLoading = false;
+                    }
                 }
             });
         }
 
         private void LoadInitialReport()
         {
-            GenerateReportInternal();
+            ScheduleReportGeneration();
         }
 
         private void ClearAllReports()
@@ -395,16 +423,75 @@ namespace SupplyCompanySystem.UI.ViewModels
             };
         }
 
-        private void LoadSalesSummary()
+        #region Cache Methods
+        private string GetCacheKey(ReportType reportType)
+        {
+            return $"{reportType}_{FromDate:yyyyMMdd}_{ToDate:yyyyMMdd}_{TopLimit}_{SelectedYear}";
+        }
+
+        private bool TryGetFromCache<T>(string cacheKey, out T cachedData)
+        {
+            // تنظيف الـ Cache إذا انتهت صلاحيته
+            if (DateTime.Now - _lastCacheTime > _cacheDuration)
+            {
+                _reportCache.Clear();
+                _lastCacheTime = DateTime.Now;
+                cachedData = default;
+                return false;
+            }
+
+            if (_reportCache.TryGetValue(cacheKey, out object data))
+            {
+                cachedData = (T)data;
+                return true;
+            }
+
+            cachedData = default;
+            return false;
+        }
+
+        private void AddToCache(string cacheKey, object data)
+        {
+            _reportCache[cacheKey] = data;
+            _lastCacheTime = DateTime.Now;
+        }
+        #endregion
+
+        #region Async Load Methods
+
+        private async Task LoadSalesSummaryAsync(System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                var summary = _reportRepository.GetSalesSummary(FromDate, ToDate);
+                var cacheKey = GetCacheKey(ReportType.Summary);
+
+                // محاولة جلب البيانات من الـ Cache
+                if (TryGetFromCache<SalesSummaryReport>(cacheKey, out var cachedSummary))
+                {
+                    SalesSummary = cachedSummary;
+
+                    if (SalesSummary != null)
+                    {
+                        QuickStatsText = $"📊 {FromDate:yyyy/MM/dd} - {ToDate:yyyy/MM/dd}: {SalesSummary.TotalInvoices} فاتورة، {SalesSummary.TotalSalesAmount:0.00} جنيهاً";
+                    }
+                    return;
+                }
+
+                // جلب البيانات من قاعدة البيانات
+                var summary = await Task.Run(() =>
+                    _reportRepository.GetSalesSummary(FromDate, ToDate), cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
                 SalesSummary = summary;
 
                 if (summary != null)
                 {
                     QuickStatsText = $"📊 {FromDate:yyyy/MM/dd} - {ToDate:yyyy/MM/dd}: {summary.TotalInvoices} فاتورة، {summary.TotalSalesAmount:0.00} جنيهاً";
+
+                    // حفظ في الـ Cache
+                    AddToCache(cacheKey, summary);
                 }
             }
             catch (Exception ex)
@@ -416,20 +503,44 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void LoadTopProducts()
+        private async Task LoadTopProductsAsync(System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                var (products, totalSales, totalItems) = _reportRepository.GetTopSellingProducts(
-                    FromDate, ToDate, null, TopLimit);
+                var cacheKey = GetCacheKey(ReportType.TopProducts);
+
+                // محاولة جلب البيانات من الـ Cache
+                if (TryGetFromCache<List<ProductSalesReport>>(cacheKey, out var cachedProducts))
+                {
+                    TopSellingProducts.Clear();
+                    if (cachedProducts != null)
+                    {
+                        foreach (var product in cachedProducts)
+                        {
+                            TopSellingProducts.Add(product);
+                        }
+                    }
+                    return;
+                }
+
+                // جلب البيانات من قاعدة البيانات
+                var result = await Task.Run(() =>
+                    _reportRepository.GetTopSellingProducts(FromDate, ToDate, null, TopLimit),
+                    cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
                 TopSellingProducts.Clear();
-                if (products != null && products.Any())
+                if (result.Products != null && result.Products.Any())
                 {
-                    foreach (var product in products)
+                    foreach (var product in result.Products)
                     {
                         TopSellingProducts.Add(product);
                     }
+
+                    // حفظ في الـ Cache
+                    AddToCache(cacheKey, result.Products.ToList());
                 }
             }
             catch (Exception ex)
@@ -441,20 +552,44 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void LoadLeastProducts()
+        private async Task LoadLeastProductsAsync(System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                var (products, totalSales, totalItems) = _reportRepository.GetLeastSellingProducts(
-                    FromDate, ToDate, null, TopLimit);
+                var cacheKey = GetCacheKey(ReportType.LeastProducts);
+
+                // محاولة جلب البيانات من الـ Cache
+                if (TryGetFromCache<List<ProductSalesReport>>(cacheKey, out var cachedProducts))
+                {
+                    LeastSellingProducts.Clear();
+                    if (cachedProducts != null)
+                    {
+                        foreach (var product in cachedProducts)
+                        {
+                            LeastSellingProducts.Add(product);
+                        }
+                    }
+                    return;
+                }
+
+                // جلب البيانات من قاعدة البيانات
+                var result = await Task.Run(() =>
+                    _reportRepository.GetLeastSellingProducts(FromDate, ToDate, null, TopLimit),
+                    cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
                 LeastSellingProducts.Clear();
-                if (products != null && products.Any())
+                if (result.Products != null && result.Products.Any())
                 {
-                    foreach (var product in products)
+                    foreach (var product in result.Products)
                     {
                         LeastSellingProducts.Add(product);
                     }
+
+                    // حفظ في الـ Cache
+                    AddToCache(cacheKey, result.Products.ToList());
                 }
             }
             catch (Exception ex)
@@ -466,20 +601,44 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void LoadTopPayingCustomers()
+        private async Task LoadTopPayingCustomersAsync(System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                var (customers, totalAmount) = _reportRepository.GetTopPayingCustomers(
-                    FromDate, ToDate, TopLimit);
+                var cacheKey = GetCacheKey(ReportType.TopPayingCustomers);
+
+                // محاولة جلب البيانات من الـ Cache
+                if (TryGetFromCache<List<CustomerReport>>(cacheKey, out var cachedCustomers))
+                {
+                    TopPayingCustomers.Clear();
+                    if (cachedCustomers != null)
+                    {
+                        foreach (var customer in cachedCustomers)
+                        {
+                            TopPayingCustomers.Add(customer);
+                        }
+                    }
+                    return;
+                }
+
+                // جلب البيانات من قاعدة البيانات
+                var result = await Task.Run(() =>
+                    _reportRepository.GetTopPayingCustomers(FromDate, ToDate, TopLimit),
+                    cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
                 TopPayingCustomers.Clear();
-                if (customers != null && customers.Any())
+                if (result.Customers != null && result.Customers.Any())
                 {
-                    foreach (var customer in customers)
+                    foreach (var customer in result.Customers)
                     {
                         TopPayingCustomers.Add(customer);
                     }
+
+                    // حفظ في الـ Cache
+                    AddToCache(cacheKey, result.Customers.ToList());
                 }
             }
             catch (Exception ex)
@@ -491,20 +650,44 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void LoadTopInvoiceCustomers()
+        private async Task LoadTopInvoiceCustomersAsync(System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                var (customers, totalAmount) = _reportRepository.GetTopInvoiceCustomers(
-                    FromDate, ToDate, TopLimit);
+                var cacheKey = GetCacheKey(ReportType.TopInvoiceCustomers);
+
+                // محاولة جلب البيانات من الـ Cache
+                if (TryGetFromCache<List<CustomerReport>>(cacheKey, out var cachedCustomers))
+                {
+                    TopInvoiceCustomers.Clear();
+                    if (cachedCustomers != null)
+                    {
+                        foreach (var customer in cachedCustomers)
+                        {
+                            TopInvoiceCustomers.Add(customer);
+                        }
+                    }
+                    return;
+                }
+
+                // جلب البيانات من قاعدة البيانات
+                var result = await Task.Run(() =>
+                    _reportRepository.GetTopInvoiceCustomers(FromDate, ToDate, TopLimit),
+                    cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
                 TopInvoiceCustomers.Clear();
-                if (customers != null && customers.Any())
+                if (result.Customers != null && result.Customers.Any())
                 {
-                    foreach (var customer in customers)
+                    foreach (var customer in result.Customers)
                     {
                         TopInvoiceCustomers.Add(customer);
                     }
+
+                    // حفظ في الـ Cache
+                    AddToCache(cacheKey, result.Customers.ToList());
                 }
             }
             catch (Exception ex)
@@ -516,11 +699,33 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void LoadDailySales()
+        private async Task LoadDailySalesAsync(System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                var dailySales = _reportRepository.GetDailySales(FromDate, ToDate);
+                var cacheKey = GetCacheKey(ReportType.DailySales);
+
+                // محاولة جلب البيانات من الـ Cache
+                if (TryGetFromCache<List<DailySalesReport>>(cacheKey, out var cachedSales))
+                {
+                    DailySales.Clear();
+                    if (cachedSales != null)
+                    {
+                        foreach (var day in cachedSales)
+                        {
+                            DailySales.Add(day);
+                        }
+                    }
+                    return;
+                }
+
+                // جلب البيانات من قاعدة البيانات
+                var dailySales = await Task.Run(() =>
+                    _reportRepository.GetDailySales(FromDate, ToDate),
+                    cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
                 DailySales.Clear();
                 if (dailySales != null && dailySales.Any())
@@ -529,10 +734,13 @@ namespace SupplyCompanySystem.UI.ViewModels
                     {
                         DailySales.Add(day);
                     }
+
+                    // حفظ في الـ Cache
+                    AddToCache(cacheKey, dailySales.ToList());
                 }
                 else
                 {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         MessageBox.Show($"لا توجد بيانات للمبيعات اليومية في الفترة من {FromDate:yyyy/MM/dd} إلى {ToDate:yyyy/MM/dd}",
                             "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -548,11 +756,33 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void LoadMonthlySales()
+        private async Task LoadMonthlySalesAsync(System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                var monthlySales = _reportRepository.GetMonthlySales(SelectedYear);
+                var cacheKey = GetCacheKey(ReportType.MonthlySales);
+
+                // محاولة جبد البيانات من الـ Cache
+                if (TryGetFromCache<List<MonthlySalesReport>>(cacheKey, out var cachedSales))
+                {
+                    MonthlySales.Clear();
+                    if (cachedSales != null)
+                    {
+                        foreach (var month in cachedSales)
+                        {
+                            MonthlySales.Add(month);
+                        }
+                    }
+                    return;
+                }
+
+                // جلب البيانات من قاعدة البيانات
+                var monthlySales = await Task.Run(() =>
+                    _reportRepository.GetMonthlySales(SelectedYear),
+                    cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
                 MonthlySales.Clear();
                 if (monthlySales != null && monthlySales.Any())
@@ -561,10 +791,13 @@ namespace SupplyCompanySystem.UI.ViewModels
                     {
                         MonthlySales.Add(month);
                     }
+
+                    // حفظ في الـ Cache
+                    AddToCache(cacheKey, monthlySales.ToList());
                 }
                 else
                 {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         MessageBox.Show($"لا توجد بيانات للمبيعات الشهرية لسنة {SelectedYear}",
                             "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -580,11 +813,33 @@ namespace SupplyCompanySystem.UI.ViewModels
             }
         }
 
-        private void LoadInventoryReport()
+        private async Task LoadInventoryReportAsync(System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                var inventory = _reportRepository.GetInventoryReport();
+                var cacheKey = GetCacheKey(ReportType.Inventory);
+
+                // محاولة جلب البيانات من الـ Cache
+                if (TryGetFromCache<List<InventoryReport>>(cacheKey, out var cachedInventory))
+                {
+                    InventoryReport.Clear();
+                    if (cachedInventory != null)
+                    {
+                        foreach (var item in cachedInventory.Take(TopLimit))
+                        {
+                            InventoryReport.Add(item);
+                        }
+                    }
+                    return;
+                }
+
+                // جلب البيانات من قاعدة البيانات
+                var inventory = await Task.Run(() =>
+                    _reportRepository.GetInventoryReport(),
+                    cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
                 InventoryReport.Clear();
                 if (inventory != null && inventory.Any())
@@ -593,6 +848,9 @@ namespace SupplyCompanySystem.UI.ViewModels
                     {
                         InventoryReport.Add(item);
                     }
+
+                    // حفظ في الـ Cache
+                    AddToCache(cacheKey, inventory.ToList());
                 }
             }
             catch (Exception ex)
@@ -603,6 +861,8 @@ namespace SupplyCompanySystem.UI.ViewModels
 #endif
             }
         }
+
+        #endregion
 
         private void LoadQuickStats()
         {
@@ -635,7 +895,7 @@ namespace SupplyCompanySystem.UI.ViewModels
 
         #region التصدير
 
-        private void ExportToExcel()
+        private async void ExportToExcel()
         {
             if (!HasReportData || IsLoading)
             {
@@ -646,49 +906,59 @@ namespace SupplyCompanySystem.UI.ViewModels
 
             try
             {
-                switch (SelectedReportType)
+                IsLoading = true;
+
+                await Task.Run(() =>
                 {
-                    case ReportType.Summary:
-                        _excelExporter.ExportSummaryToExcel(SalesSummary, FromDate, ToDate, SelectedReportType);
-                        break;
+                    switch (SelectedReportType)
+                    {
+                        case ReportType.Summary:
+                            _excelExporter.ExportSummaryToExcel(SalesSummary, FromDate, ToDate, SelectedReportType);
+                            break;
 
-                    case ReportType.TopProducts:
-                        _excelExporter.ExportProductsToExcel(TopSellingProducts.ToList(), FromDate, ToDate, SelectedReportType);
-                        break;
+                        case ReportType.TopProducts:
+                            _excelExporter.ExportProductsToExcel(TopSellingProducts.ToList(), FromDate, ToDate, SelectedReportType);
+                            break;
 
-                    case ReportType.LeastProducts:
-                        _excelExporter.ExportProductsToExcel(LeastSellingProducts.ToList(), FromDate, ToDate, SelectedReportType, true);
-                        break;
+                        case ReportType.LeastProducts:
+                            _excelExporter.ExportProductsToExcel(LeastSellingProducts.ToList(), FromDate, ToDate, SelectedReportType, true);
+                            break;
 
-                    case ReportType.TopPayingCustomers:
-                        _excelExporter.ExportCustomersToExcel(TopPayingCustomers.ToList(), FromDate, ToDate, SelectedReportType);
-                        break;
+                        case ReportType.TopPayingCustomers:
+                            _excelExporter.ExportCustomersToExcel(TopPayingCustomers.ToList(), FromDate, ToDate, SelectedReportType);
+                            break;
 
-                    case ReportType.TopInvoiceCustomers:
-                        _excelExporter.ExportCustomersToExcel(TopInvoiceCustomers.ToList(), FromDate, ToDate, SelectedReportType, true);
-                        break;
+                        case ReportType.TopInvoiceCustomers:
+                            _excelExporter.ExportCustomersToExcel(TopInvoiceCustomers.ToList(), FromDate, ToDate, SelectedReportType, true);
+                            break;
 
-                    case ReportType.DailySales:
-                        _excelExporter.ExportDailySalesToExcel(DailySales.ToList(), FromDate, ToDate);
-                        break;
+                        case ReportType.DailySales:
+                            _excelExporter.ExportDailySalesToExcel(DailySales.ToList(), FromDate, ToDate);
+                            break;
 
-                    case ReportType.MonthlySales:
-                        _excelExporter.ExportMonthlySalesToExcel(MonthlySales.ToList(), SelectedYear);
-                        break;
+                        case ReportType.MonthlySales:
+                            _excelExporter.ExportMonthlySalesToExcel(MonthlySales.ToList(), SelectedYear);
+                            break;
 
-                    case ReportType.Inventory:
-                        _excelExporter.ExportInventoryToExcel(InventoryReport.ToList(), FromDate, ToDate);
-                        break;
-                }
+                        case ReportType.Inventory:
+                            _excelExporter.ExportInventoryToExcel(InventoryReport.ToList(), FromDate, ToDate);
+                            break;
+                    }
+                });
+
+                IsLoading = false;
+                MessageBox.Show("تم تصدير التقرير بنجاح إلى Excel", "نجاح",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
+                IsLoading = false;
                 MessageBox.Show($"خطأ أثناء التصدير إلى Excel: {ex.Message}", "خطأ",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void ExportToPdf()
+        private async void ExportToPdf()
         {
             if (!HasReportData || IsLoading)
             {
@@ -699,43 +969,53 @@ namespace SupplyCompanySystem.UI.ViewModels
 
             try
             {
-                switch (SelectedReportType)
+                IsLoading = true;
+
+                await Task.Run(() =>
                 {
-                    case ReportType.Summary:
-                        _pdfExporter.ExportSummaryToPdf(SalesSummary, FromDate, ToDate, SelectedReportType);
-                        break;
+                    switch (SelectedReportType)
+                    {
+                        case ReportType.Summary:
+                            _pdfExporter.ExportSummaryToPdf(SalesSummary, FromDate, ToDate, SelectedReportType);
+                            break;
 
-                    case ReportType.TopProducts:
-                        _pdfExporter.ExportProductsToPdf(TopSellingProducts.ToList(), FromDate, ToDate, SelectedReportType);
-                        break;
+                        case ReportType.TopProducts:
+                            _pdfExporter.ExportProductsToPdf(TopSellingProducts.ToList(), FromDate, ToDate, SelectedReportType);
+                            break;
 
-                    case ReportType.LeastProducts:
-                        _pdfExporter.ExportProductsToPdf(LeastSellingProducts.ToList(), FromDate, ToDate, SelectedReportType, true);
-                        break;
+                        case ReportType.LeastProducts:
+                            _pdfExporter.ExportProductsToPdf(LeastSellingProducts.ToList(), FromDate, ToDate, SelectedReportType, true);
+                            break;
 
-                    case ReportType.TopPayingCustomers:
-                        _pdfExporter.ExportCustomersToPdf(TopPayingCustomers.ToList(), FromDate, ToDate, SelectedReportType);
-                        break;
+                        case ReportType.TopPayingCustomers:
+                            _pdfExporter.ExportCustomersToPdf(TopPayingCustomers.ToList(), FromDate, ToDate, SelectedReportType);
+                            break;
 
-                    case ReportType.TopInvoiceCustomers:
-                        _pdfExporter.ExportCustomersToPdf(TopInvoiceCustomers.ToList(), FromDate, ToDate, SelectedReportType, true);
-                        break;
+                        case ReportType.TopInvoiceCustomers:
+                            _pdfExporter.ExportCustomersToPdf(TopInvoiceCustomers.ToList(), FromDate, ToDate, SelectedReportType, true);
+                            break;
 
-                    case ReportType.DailySales:
-                        _pdfExporter.ExportDailySalesToPdf(DailySales.ToList(), FromDate, ToDate);
-                        break;
+                        case ReportType.DailySales:
+                            _pdfExporter.ExportDailySalesToPdf(DailySales.ToList(), FromDate, ToDate);
+                            break;
 
-                    case ReportType.MonthlySales:
-                        _pdfExporter.ExportMonthlySalesToPdf(MonthlySales.ToList(), SelectedYear);
-                        break;
+                        case ReportType.MonthlySales:
+                            _pdfExporter.ExportMonthlySalesToPdf(MonthlySales.ToList(), SelectedYear);
+                            break;
 
-                    case ReportType.Inventory:
-                        _pdfExporter.ExportInventoryToPdf(InventoryReport.ToList(), FromDate, ToDate);
-                        break;
-                }
+                        case ReportType.Inventory:
+                            _pdfExporter.ExportInventoryToPdf(InventoryReport.ToList(), FromDate, ToDate);
+                            break;
+                    }
+                });
+
+                IsLoading = false;
+                MessageBox.Show("تم تصدير التقرير بنجاح إلى PDF", "نجاح",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
+                IsLoading = false;
                 MessageBox.Show($"خطأ أثناء التصدير إلى PDF: {ex.Message}", "خطأ",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -768,6 +1048,9 @@ namespace SupplyCompanySystem.UI.ViewModels
             SelectedYear = DateTime.Now.Year;
             TopLimit = 10;
 
+            // مسح الـ Cache
+            _reportCache.Clear();
+
             ScheduleReportGeneration();
         }
 
@@ -777,6 +1060,10 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 _reportGenerationTimer?.Dispose();
                 _reportGenerationTimer = null;
+
+                _currentCts?.Cancel();
+                _currentCts?.Dispose();
+                _currentCts = null;
             }
 
             TopSellingProducts?.Clear();
@@ -786,6 +1073,8 @@ namespace SupplyCompanySystem.UI.ViewModels
             DailySales?.Clear();
             MonthlySales?.Clear();
             InventoryReport?.Clear();
+
+            _reportCache?.Clear();
         }
 
         #endregion

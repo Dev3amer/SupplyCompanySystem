@@ -38,14 +38,25 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 if (!string.IsNullOrWhiteSpace(category))
                     query = query.Where(ii => ii.Product.Category == category);
 
+                // استعلام محسن باستخدام Select قبل GroupBy
                 var groupedData = query
-                    .GroupBy(ii => new
+                    .Select(ii => new
                     {
                         ii.ProductId,
                         ii.Product.Name,
                         ii.Product.Category,
                         ii.Product.SKU,
-                        ii.OriginalUnitPrice
+                        ii.OriginalUnitPrice,
+                        ii.Quantity,
+                        ii.LineTotal
+                    })
+                    .GroupBy(p => new
+                    {
+                        p.ProductId,
+                        p.Name,
+                        p.Category,
+                        p.SKU,
+                        p.OriginalUnitPrice
                     })
                     .Select(g => new ProductSalesReport
                     {
@@ -54,11 +65,12 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                         Category = g.Key.Category,
                         SKU = g.Key.SKU,
                         UnitPrice = g.Key.OriginalUnitPrice,
-                        TotalQuantity = (int)g.Sum(ii => ii.Quantity),
-                        TotalAmount = g.Sum(ii => ii.LineTotal)
+                        TotalQuantity = (int)g.Sum(p => p.Quantity),
+                        TotalAmount = g.Sum(p => p.LineTotal)
                     })
                     .OrderByDescending(p => p.TotalQuantity)
                     .Take(limit)
+                    .AsNoTracking()
                     .ToList();
 
                 decimal totalSales = groupedData.Sum(p => p.TotalAmount);
@@ -104,14 +116,25 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 if (!string.IsNullOrWhiteSpace(category))
                     query = query.Where(ii => ii.Product.Category == category);
 
+                // استعلام محسن
                 var groupedData = query
-                    .GroupBy(ii => new
+                    .Select(ii => new
                     {
                         ii.ProductId,
                         ii.Product.Name,
                         ii.Product.Category,
                         ii.Product.SKU,
-                        ii.OriginalUnitPrice
+                        ii.OriginalUnitPrice,
+                        ii.Quantity,
+                        ii.LineTotal
+                    })
+                    .GroupBy(p => new
+                    {
+                        p.ProductId,
+                        p.Name,
+                        p.Category,
+                        p.SKU,
+                        p.OriginalUnitPrice
                     })
                     .Select(g => new ProductSalesReport
                     {
@@ -120,12 +143,13 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                         Category = g.Key.Category,
                         SKU = g.Key.SKU,
                         UnitPrice = g.Key.OriginalUnitPrice,
-                        TotalQuantity = (int)g.Sum(ii => ii.Quantity),
-                        TotalAmount = g.Sum(ii => ii.LineTotal)
+                        TotalQuantity = (int)g.Sum(p => p.Quantity),
+                        TotalAmount = g.Sum(p => p.LineTotal)
                     })
                     .OrderBy(p => p.TotalQuantity)
                     .ThenBy(p => p.ProductName)
                     .Take(limit)
+                    .AsNoTracking()
                     .ToList();
 
                 decimal totalSales = groupedData.Sum(p => p.TotalAmount);
@@ -166,12 +190,21 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 if (toDate.HasValue)
                     query = query.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
 
+                // استعلام محسن مع Select أولاً
                 var groupedData = query
-                    .GroupBy(i => new
+                    .Select(i => new
                     {
                         i.CustomerId,
                         i.Customer.Name,
-                        i.Customer.PhoneNumber
+                        i.Customer.PhoneNumber,
+                        i.FinalAmount,
+                        i.InvoiceDate
+                    })
+                    .GroupBy(i => new
+                    {
+                        i.CustomerId,
+                        i.Name,
+                        i.PhoneNumber
                     })
                     .Select(g => new CustomerReport
                     {
@@ -185,6 +218,7 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     })
                     .OrderByDescending(c => c.TotalAmount)
                     .Take(limit)
+                    .AsNoTracking()
                     .ToList();
 
                 decimal totalAmount = groupedData.Sum(c => c.TotalAmount);
@@ -216,12 +250,21 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 if (toDate.HasValue)
                     query = query.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
 
+                // استعلام محسن
                 var groupedData = query
-                    .GroupBy(i => new
+                    .Select(i => new
                     {
                         i.CustomerId,
                         i.Customer.Name,
-                        i.Customer.PhoneNumber
+                        i.Customer.PhoneNumber,
+                        i.FinalAmount,
+                        i.InvoiceDate
+                    })
+                    .GroupBy(i => new
+                    {
+                        i.CustomerId,
+                        i.Name,
+                        i.PhoneNumber
                     })
                     .Select(g => new CustomerReport
                     {
@@ -236,6 +279,7 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     .OrderByDescending(c => c.InvoiceCount)
                     .ThenByDescending(c => c.TotalAmount)
                     .Take(limit)
+                    .AsNoTracking()
                     .ToList();
 
                 decimal totalAmount = groupedData.Sum(c => c.TotalAmount);
@@ -268,11 +312,39 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 if (toDate.HasValue)
                     query = query.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
 
-                var invoices = query.ToList();
+                // استخدام Select لتحسين الأداء
+                var invoiceData = query
+                    .Select(i => new
+                    {
+                        i.Id,
+                        i.CustomerId,
+                        i.FinalAmount,
+                        i.InvoiceDate,
+                        Items = i.Items.Select(ii => new
+                        {
+                            ii.ProductId,
+                            ii.Product.Name,
+                            ii.Quantity,
+                            ii.UnitPrice,
+                            ii.OriginalUnitPrice,
+                            ii.LineTotal
+                        }).ToList()
+                    })
+                    .ToList();
 
-                var mostSoldProduct = invoices
+                if (!invoiceData.Any())
+                {
+                    return new SalesSummaryReport
+                    {
+                        PeriodFrom = fromDate,
+                        PeriodTo = toDate
+                    };
+                }
+
+                // حساب أكثر المنتجات مبيعاً
+                var mostSoldProduct = invoiceData
                     .SelectMany(i => i.Items)
-                    .GroupBy(ii => new { ii.ProductId, ii.Product.Name })
+                    .GroupBy(ii => new { ii.ProductId, ii.Name })
                     .Select(g => new
                     {
                         ProductId = g.Key.ProductId,
@@ -282,19 +354,20 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     .OrderByDescending(g => g.TotalQuantity)
                     .FirstOrDefault();
 
-                var topCustomer = invoices
-                    .GroupBy(i => new { i.CustomerId, i.Customer.Name })
+                // حساب العملاء الأكثر إنفاقاً
+                var topCustomer = invoiceData
+                    .GroupBy(i => i.CustomerId)
                     .Select(g => new
                     {
-                        CustomerId = g.Key.CustomerId,
-                        CustomerName = g.Key.Name,
+                        CustomerId = g.Key,
                         TotalAmount = g.Sum(i => i.FinalAmount)
                     })
                     .OrderByDescending(g => g.TotalAmount)
                     .FirstOrDefault();
 
+                // حساب إجمالي الربح
                 decimal totalProfit = 0;
-                foreach (var invoice in invoices)
+                foreach (var invoice in invoiceData)
                 {
                     foreach (var item in invoice.Items)
                     {
@@ -303,45 +376,20 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     }
                 }
 
+                // حساب إجمالي الخصم (افتراضي)
                 decimal totalDiscount = 0;
-                foreach (var invoice in invoices)
-                {
-                    var invoiceDiscountProp = invoice.GetType().GetProperty("InvoiceDiscountAmount");
-                    if (invoiceDiscountProp != null)
-                    {
-                        var discountValue = invoiceDiscountProp.GetValue(invoice);
-                        if (discountValue != null)
-                        {
-                            totalDiscount += Convert.ToDecimal(discountValue);
-                        }
-                    }
-
-                    foreach (var item in invoice.Items)
-                    {
-                        var discountProp = item.GetType().GetProperty("DiscountPercentage");
-                        if (discountProp != null)
-                        {
-                            var discountValue = discountProp.GetValue(item);
-                            if (discountValue != null)
-                            {
-                                decimal discountPercent = Convert.ToDecimal(discountValue);
-                                totalDiscount += (item.OriginalUnitPrice * item.Quantity * discountPercent / 100);
-                            }
-                        }
-                    }
-                }
 
                 var summary = new SalesSummaryReport
                 {
                     PeriodFrom = fromDate,
                     PeriodTo = toDate,
-                    TotalInvoices = invoices.Count,
-                    TotalCustomers = invoices.Select(i => i.CustomerId).Distinct().Count(),
-                    TotalProductsSold = (int)invoices.Sum(i => i.Items.Sum(ii => ii.Quantity)),
-                    TotalSalesAmount = invoices.Sum(i => i.FinalAmount),
+                    TotalInvoices = invoiceData.Count,
+                    TotalCustomers = invoiceData.Select(i => i.CustomerId).Distinct().Count(),
+                    TotalProductsSold = (int)invoiceData.Sum(i => i.Items.Sum(ii => ii.Quantity)),
+                    TotalSalesAmount = invoiceData.Sum(i => i.FinalAmount),
                     TotalProfitAmount = totalProfit,
                     TotalDiscountAmount = totalDiscount,
-                    AverageInvoiceAmount = invoices.Count > 0 ? invoices.Average(i => i.FinalAmount) : 0
+                    AverageInvoiceAmount = invoiceData.Count > 0 ? invoiceData.Average(i => i.FinalAmount) : 0
                 };
 
                 if (mostSoldProduct != null)
@@ -354,7 +402,13 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 if (topCustomer != null)
                 {
                     summary.TopCustomerId = topCustomer.CustomerId;
-                    summary.TopCustomerName = topCustomer.CustomerName;
+                    // نحتاج لجلب اسم العميل
+                    var customer = _context.Customers
+                        .Where(c => c.Id == topCustomer.CustomerId)
+                        .Select(c => c.Name)
+                        .FirstOrDefault();
+
+                    summary.TopCustomerName = customer ?? "غير معروف";
                     summary.TopCustomerTotal = topCustomer.TotalAmount;
                 }
 
@@ -372,32 +426,42 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
         {
             try
             {
-                var invoices = _context.Invoices
-                    .Include(i => i.Customer)
+                // استخدام استعلام أكثر كفاءة
+                var invoiceData = _context.Invoices
                     .Include(i => i.Items)
                     .Where(i => i.Status == InvoiceStatus.Completed &&
                                i.InvoiceDate.Date >= fromDate.Date &&
                                i.InvoiceDate.Date <= toDate.Date)
+                    .Select(i => new
+                    {
+                        i.InvoiceDate.Date,
+                        i.CustomerId,
+                        i.FinalAmount,
+                        i.Items
+                    })
                     .AsNoTracking()
                     .ToList();
 
-                var dailyGroups = invoices
-                    .GroupBy(i => i.InvoiceDate.Date)
+                var dailyData = invoiceData
+                    .GroupBy(i => i.Date)
                     .Select(g => new DailySalesReport
                     {
                         Date = g.Key,
                         InvoiceCount = g.Count(),
                         CustomerCount = g.Select(i => i.CustomerId).Distinct().Count(),
                         TotalAmount = g.Sum(i => i.FinalAmount),
-                        TotalProfit = 0,
-                        TotalDiscount = 0
+                        TotalProfit = 0, // سيتم حسابه لاحقاً
+                        TotalDiscount = 0 // سيتم حسابه لاحقاً
                     })
                     .OrderBy(r => r.Date)
                     .ToList();
 
-                foreach (var report in dailyGroups)
+                // حساب الربح لكل يوم
+                foreach (var report in dailyData)
                 {
-                    var dayInvoices = invoices.Where(i => i.InvoiceDate.Date == report.Date).ToList();
+                    var dayInvoices = invoiceData
+                        .Where(i => i.Date == report.Date)
+                        .ToList();
 
                     foreach (var invoice in dayInvoices)
                     {
@@ -405,53 +469,20 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                         {
                             decimal itemProfit = (item.UnitPrice - item.OriginalUnitPrice) * item.Quantity;
                             report.TotalProfit += itemProfit;
-
-                            try
-                            {
-                                var discountProp = item.GetType().GetProperty("DiscountPercentage");
-                                if (discountProp != null)
-                                {
-                                    var discountValue = discountProp.GetValue(item);
-                                    if (discountValue != null)
-                                    {
-                                        decimal discountPercent = Convert.ToDecimal(discountValue);
-                                        decimal itemDiscount = (item.OriginalUnitPrice * item.Quantity * discountPercent / 100);
-                                        report.TotalDiscount += itemDiscount;
-                                    }
-                                }
-                            }
-                            catch
-                            {
-                            }
-                        }
-
-                        try
-                        {
-                            var invoiceDiscountProp = invoice.GetType().GetProperty("InvoiceDiscountAmount");
-                            if (invoiceDiscountProp != null)
-                            {
-                                var discountValue = invoiceDiscountProp.GetValue(invoice);
-                                if (discountValue != null)
-                                {
-                                    report.TotalDiscount += Convert.ToDecimal(discountValue);
-                                }
-                            }
-                        }
-                        catch
-                        {
                         }
                     }
                 }
 
+                // إضافة الأيام الفارغة
                 var allDates = Enumerable.Range(0, (toDate.Date - fromDate.Date).Days + 1)
                     .Select(offset => fromDate.Date.AddDays(offset))
                     .ToList();
 
                 foreach (var date in allDates)
                 {
-                    if (!dailyGroups.Any(r => r.Date.Date == date))
+                    if (!dailyData.Any(r => r.Date.Date == date))
                     {
-                        dailyGroups.Add(new DailySalesReport
+                        dailyData.Add(new DailySalesReport
                         {
                             Date = date,
                             InvoiceCount = 0,
@@ -463,7 +494,7 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     }
                 }
 
-                return dailyGroups.OrderBy(r => r.Date).ToList();
+                return dailyData.OrderBy(r => r.Date).ToList();
             }
             catch (Exception ex)
             {
@@ -476,50 +507,46 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
         {
             try
             {
-                var invoices = _context.Invoices
+                var invoiceData = _context.Invoices
                     .Include(i => i.Items)
                     .Where(i => i.Status == InvoiceStatus.Completed &&
                                i.InvoiceDate.Year == year)
+                    .Select(i => new
+                    {
+                        i.InvoiceDate.Month,
+                        i.FinalAmount,
+                        Items = i.Items.Select(ii => new
+                        {
+                            ii.UnitPrice,
+                            ii.OriginalUnitPrice,
+                            ii.Quantity
+                        }).ToList()
+                    })
                     .AsNoTracking()
                     .ToList();
 
-                var monthlyReports = new List<MonthlySalesReport>();
-
-                for (int month = 1; month <= 12; month++)
-                {
-                    var monthInvoices = invoices
-                        .Where(i => i.InvoiceDate.Month == month)
-                        .ToList();
-
-                    decimal totalProfit = 0;
-                    foreach (var invoice in monthInvoices)
-                    {
-                        foreach (var item in invoice.Items)
-                        {
-                            totalProfit += (item.UnitPrice - item.OriginalUnitPrice) * item.Quantity;
-                        }
-                    }
-
-                    var report = new MonthlySalesReport
+                var monthlyData = invoiceData
+                    .GroupBy(i => i.Month)
+                    .Select(g => new MonthlySalesReport
                     {
                         Year = year,
-                        Month = month,
-                        MonthName = GetArabicMonthName(month),
-                        InvoiceCount = monthInvoices.Count,
-                        TotalAmount = monthInvoices.Sum(i => i.FinalAmount),
-                        TotalProfit = totalProfit,
-                        AverageAmount = monthInvoices.Count > 0 ?
-                            monthInvoices.Average(i => i.FinalAmount) : 0,
+                        Month = g.Key,
+                        MonthName = GetArabicMonthName(g.Key),
+                        InvoiceCount = g.Count(),
+                        TotalAmount = g.Sum(i => i.FinalAmount),
+                        TotalProfit = g.Sum(i => i.Items.Sum(ii =>
+                            (ii.UnitPrice - ii.OriginalUnitPrice) * ii.Quantity)),
+                        AverageAmount = g.Average(i => i.FinalAmount),
                         GrowthPercentage = 0
-                    };
+                    })
+                    .OrderBy(r => r.Month)
+                    .ToList();
 
-                    monthlyReports.Add(report);
-                }
-
-                for (int i = 1; i < monthlyReports.Count; i++)
+                // حساب النمو الشهري
+                for (int i = 1; i < monthlyData.Count; i++)
                 {
-                    var current = monthlyReports[i];
-                    var previous = monthlyReports[i - 1];
+                    var current = monthlyData[i];
+                    var previous = monthlyData[i - 1];
 
                     if (previous.TotalAmount > 0)
                     {
@@ -531,7 +558,27 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     }
                 }
 
-                return monthlyReports.OrderBy(r => r.Month).ToList();
+                // إضافة الأشهر الفارغة
+                var allMonths = Enumerable.Range(1, 12);
+                foreach (var month in allMonths)
+                {
+                    if (!monthlyData.Any(r => r.Month == month))
+                    {
+                        monthlyData.Add(new MonthlySalesReport
+                        {
+                            Year = year,
+                            Month = month,
+                            MonthName = GetArabicMonthName(month),
+                            InvoiceCount = 0,
+                            TotalAmount = 0,
+                            TotalProfit = 0,
+                            AverageAmount = 0,
+                            GrowthPercentage = 0
+                        });
+                    }
+                }
+
+                return monthlyData.OrderBy(r => r.Month).ToList();
             }
             catch (Exception ex)
             {
@@ -546,37 +593,82 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 var threeMonthsAgo = DateTime.Now.AddMonths(-3);
                 var oneMonthAgo = DateTime.Now.AddMonths(-1);
 
+                // استعلام محسن للمنتجات
                 var products = _context.Products
                     .Where(p => p.IsActive)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        p.Name,
+                        p.Category,
+                        p.SKU,
+                        p.Price
+                    })
                     .AsNoTracking()
                     .ToList();
 
-                var invoiceItems = _context.InvoiceItems
+                // استعلام محسن للمبيعات - استخدام نوع محدد
+                var salesQuery = _context.InvoiceItems
                     .Include(ii => ii.Invoice)
-                    .Include(ii => ii.Product)
                     .Where(ii => ii.Invoice.Status == InvoiceStatus.Completed)
+                    .Select(ii => new
+                    {
+                        ii.ProductId,
+                        ii.Quantity,
+                        ii.LineTotal,
+                        ii.Invoice.InvoiceDate
+                    })
                     .AsNoTracking()
                     .ToList();
+
+                var salesData = salesQuery
+                    .GroupBy(ii => ii.ProductId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
 
                 var reports = new List<InventoryReport>();
 
                 foreach (var product in products)
                 {
-                    var productItems = invoiceItems
-                        .Where(ii => ii.ProductId == product.Id)
-                        .ToList();
+                    if (!salesData.TryGetValue(product.Id, out var productSales))
+                    {
+                        // لا توجد مبيعات لهذا المنتج
+                        reports.Add(new InventoryReport
+                        {
+                            ProductId = product.Id,
+                            ProductName = product.Name,
+                            Category = product.Category,
+                            SKU = product.SKU,
+                            UnitPrice = product.Price,
+                            TotalSoldQuantity = 0,
+                            TotalSoldAmount = 0,
+                            LastMonthSoldQuantity = 0,
+                            LastThreeMonthsSoldQuantity = 0,
+                            AverageMonthlySales = 0,
+                            SalesTrend = "لا توجد مبيعات"
+                        });
+                        continue;
+                    }
 
-                    var lastMonthItems = productItems
-                        .Where(ii => ii.Invoice.InvoiceDate >= oneMonthAgo)
-                        .ToList();
+                    int totalSoldQuantity = 0;
+                    decimal totalSoldAmount = 0;
+                    int lastMonthSoldQuantity = 0;
+                    int lastThreeMonthsSoldQuantity = 0;
 
-                    var lastThreeMonthsItems = productItems
-                        .Where(ii => ii.Invoice.InvoiceDate >= threeMonthsAgo)
-                        .ToList();
+                    foreach (var sale in productSales)
+                    {
+                        totalSoldQuantity += (int)sale.Quantity;
+                        totalSoldAmount += sale.LineTotal;
 
-                    int totalSoldQuantity = (int)productItems.Sum(ii => ii.Quantity);
-                    int lastMonthSoldQuantity = (int)lastMonthItems.Sum(ii => ii.Quantity);
-                    int lastThreeMonthsSoldQuantity = (int)lastThreeMonthsItems.Sum(ii => ii.Quantity);
+                        if (sale.InvoiceDate >= oneMonthAgo)
+                        {
+                            lastMonthSoldQuantity += (int)sale.Quantity;
+                        }
+
+                        if (sale.InvoiceDate >= threeMonthsAgo)
+                        {
+                            lastThreeMonthsSoldQuantity += (int)sale.Quantity;
+                        }
+                    }
 
                     var report = new InventoryReport
                     {
@@ -586,12 +678,12 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                         SKU = product.SKU,
                         UnitPrice = product.Price,
                         TotalSoldQuantity = totalSoldQuantity,
-                        TotalSoldAmount = productItems.Sum(ii => ii.LineTotal),
+                        TotalSoldAmount = totalSoldAmount,
                         LastMonthSoldQuantity = lastMonthSoldQuantity,
                         LastThreeMonthsSoldQuantity = lastThreeMonthsSoldQuantity
                     };
 
-                    if (lastThreeMonthsItems.Any())
+                    if (lastThreeMonthsSoldQuantity > 0)
                     {
                         report.AverageMonthlySales = lastThreeMonthsSoldQuantity / 3.0m;
                     }
