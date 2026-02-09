@@ -175,7 +175,16 @@ namespace SupplyCompanySystem.UI.ViewModels
         public SalesSummaryReport SalesSummary
         {
             get => _salesSummary;
-            set { _salesSummary = value; OnPropertyChanged(nameof(SalesSummary)); }
+            set
+            {
+                _salesSummary = value;
+                OnPropertyChanged(nameof(SalesSummary));
+                // تحديث نص الإحصائيات السريعة عند تغيير SalesSummary
+                if (value != null)
+                {
+                    QuickStatsText = $"📊 {FromDate:yyyy/MM/dd} - {ToDate:yyyy/MM/dd}: {value.TotalInvoices} فاتورة، {value.TotalSalesAmount:0.00} جنيهاً";
+                }
+            }
         }
 
         public ObservableCollection<ProductSalesReport> TopSellingProducts
@@ -290,6 +299,7 @@ namespace SupplyCompanySystem.UI.ViewModels
             ResetFiltersCommand = new RelayCommand(_ => ResetFilters());
             ShowQuickStatsCommand = new RelayCommand(_ => ShowQuickStats());
 
+            // تحميل تقرير ملخص المبيعات تلقائياً عند الإنشاء
             LoadInitialReport();
         }
 
@@ -390,9 +400,14 @@ namespace SupplyCompanySystem.UI.ViewModels
             });
         }
 
-        private void LoadInitialReport()
+        private async void LoadInitialReport()
         {
-            ScheduleReportGeneration();
+            // تحميل تقرير ملخص المبيعات تلقائياً عند البدء
+            await Task.Delay(100); // تأخير بسيط لضمان تهيئة الواجهة
+            if (SelectedReportType == ReportType.Summary)
+            {
+                await LoadSalesSummaryAsync(new System.Threading.CancellationToken());
+            }
         }
 
         private void ClearAllReports()
@@ -469,11 +484,6 @@ namespace SupplyCompanySystem.UI.ViewModels
                 if (TryGetFromCache<SalesSummaryReport>(cacheKey, out var cachedSummary))
                 {
                     SalesSummary = cachedSummary;
-
-                    if (SalesSummary != null)
-                    {
-                        QuickStatsText = $"📊 {FromDate:yyyy/MM/dd} - {ToDate:yyyy/MM/dd}: {SalesSummary.TotalInvoices} فاتورة، {SalesSummary.TotalSalesAmount:0.00} جنيهاً";
-                    }
                     return;
                 }
 
@@ -705,7 +715,7 @@ namespace SupplyCompanySystem.UI.ViewModels
             {
                 var cacheKey = GetCacheKey(ReportType.DailySales);
 
-                // محاولة جلب البيانات من الـ Cache
+                // محاولة جبد البيانات من الـ Cache
                 if (TryGetFromCache<List<DailySalesReport>>(cacheKey, out var cachedSales))
                 {
                     DailySales.Clear();

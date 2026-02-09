@@ -74,9 +74,10 @@
         public int TotalInvoices { get; set; }
         public int TotalCustomers { get; set; }
         public int TotalProductsSold { get; set; }
-        public decimal TotalSalesAmount { get; set; }
+        public decimal TotalSalesAmount { get; set; } // المبيعات الإجمالية قبل الخصم
         public decimal TotalProfitAmount { get; set; }
-        public decimal TotalDiscountAmount { get; set; }
+        public decimal TotalDiscountAmount { get; set; } // إجمالي الخصومات
+        public decimal TotalNetAmount { get; set; } // المبلغ الصافي بعد الخصم
         public decimal AverageInvoiceAmount { get; set; }
         public int MostSoldProductId { get; set; }
         public string MostSoldProductName { get; set; }
@@ -84,6 +85,12 @@
         public int TopCustomerId { get; set; }
         public string TopCustomerName { get; set; }
         public decimal TopCustomerTotal { get; set; }
+
+        // ⭐ خصائص جديدة للتحليل
+        public decimal DiscountPercentage { get; set; } // نسبة الخصم من المبيعات
+        public decimal ProfitMargin { get; set; } // هامش الربح %
+        public decimal AverageDiscountPerInvoice { get; set; } // متوسط الخصم لكل فاتورة
+        public int DiscountedInvoicesCount { get; set; } // عدد الفواتير المخصومة
     }
 
     public class DailySalesReport
@@ -120,6 +127,6 @@
         public int LastMonthSoldQuantity { get; set; }
         public int LastThreeMonthsSoldQuantity { get; set; }
         public decimal AverageMonthlySales { get; set; }
-        public string SalesTrend { get; set; } // "زيادة", "ثابت", "انخفاض", "جديد", "لا توجد مبيعات"
+        public string SalesTrend { get; set; }
     }
 }

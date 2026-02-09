@@ -5,20 +5,22 @@ using System.Windows.Data;
 
 namespace SupplyCompanySystem.UI.Converters
 {
-    public class RowNumberConverter : IValueConverter
+    public class RowNumberConverter : IMultiValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
-            // إذا كان value هو DataGridRow
-            if (value is DataGridRow row)
+            try
             {
-                // محاولة الحصول على رقم الصف من DataGrid
-                if (ItemsControl.ItemsControlFromItemContainer(row) is DataGrid dataGrid)
+                // القيمة الأولى: DataGridRow
+                if (values.Length > 0 && values[0] is DataGridRow row)
                 {
-                    try
+                    // القيمة الثانية: DataGrid
+                    if (values.Length > 1 && values[1] is DataGrid dataGrid)
                     {
+                        // محاولة الحصول على رقم الصف من DataGrid
                         int index = dataGrid.ItemContainerGenerator.IndexFromContainer(row);
-                        // إذا كان الفهرس -1 (غير معروف)، حاول الحصول منه بطريقة أخرى
+
+                        // إذا كان الفهرس -1، حاول الحصول منه بطريقة أخرى
                         if (index == -1)
                         {
                             // محاولة الحصول من ItemsSource
@@ -35,35 +37,42 @@ namespace SupplyCompanySystem.UI.Converters
                         }
                         return (index + 1).ToString(); // +1 لتبدأ من 1 بدلاً من 0
                     }
-                    catch
+
+                    // إذا لم نستطع الحصول على DataGrid، حاول من العنصر نفسه
+                    if (row.DataContext != null && row.DataContext is IList list)
                     {
-                        return "?";
+                        int index = list.IndexOf(row.DataContext);
+                        if (index >= 0) return (index + 1).ToString();
                     }
                 }
-            }
 
-            // إذا كان value ليس DataGridRow، حاول الحصول على الفهرس من parameter
-            if (parameter is DataGrid dataGridParam && value != null)
+                // إذا فشل كل شيء، ارجع سلسلة فارغة
+                return string.Empty;
+            }
+            catch
             {
-                try
+                return "?";
+            }
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+
+        // ⭐ أضف هذه الدوال للتوافق مع IValueConverter القديم
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            // هذا للتوافق مع الاستخدام القديم
+            if (value is DataGridRow row)
+            {
+                var dataGrid = ItemsControl.ItemsControlFromItemContainer(row) as DataGrid;
+                if (dataGrid != null)
                 {
-                    if (dataGridParam.ItemsSource != null)
-                    {
-                        var itemsList = dataGridParam.ItemsSource as IList;
-                        if (itemsList != null)
-                        {
-                            int index = itemsList.IndexOf(value);
-                            if (index >= 0) return (index + 1).ToString();
-                        }
-                    }
-                }
-                catch
-                {
-                    // تجاهل الخطأ
+                    int index = dataGrid.ItemContainerGenerator.IndexFromContainer(row);
+                    if (index >= 0) return (index + 1).ToString();
                 }
             }
-
-            // إذا فشل كل شيء، ارجع سلسلة فارغة
             return string.Empty;
         }
 

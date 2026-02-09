@@ -119,7 +119,10 @@
             <Setter Property="CanUserResizeRows" Value="False"/>
             <Setter Property="CanUserSortColumns" Value="True"/>
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
-            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
 
             <!-- ستايل رأس العمود - إصلاح -->
             <Setter Property="ColumnHeaderStyle">
@@ -267,7 +270,7 @@
                 <ComboBox Grid.Column="1" 
                           ItemsSource="{Binding ReportTypes}" 
                           SelectedItem="{Binding SelectedReportType}" 
-                          FontSize="12" Padding="8" Height="28">
+                          FontSize="12" Padding="5" Height="28">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Converter={StaticResource ReportTypeConverter}}"/>
@@ -283,7 +286,7 @@
 
                 <DatePicker Grid.Column="3" 
                             SelectedDate="{Binding FromDate}" 
-                            FontSize="12" Padding="8" Height="28"
+                            FontSize="12" Padding="4" Height="28"
                             DisplayDateEnd="{x:Static sys:DateTime.Today}"
                             Visibility="{Binding IsSalesReport, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
@@ -295,7 +298,7 @@
 
                 <DatePicker Grid.Column="5" 
                             SelectedDate="{Binding ToDate}" 
-                            FontSize="12" Padding="8" Height="28"
+                            FontSize="12" Padding="4" Height="28"
                             DisplayDateEnd="{x:Static sys:DateTime.Today}"
                             Visibility="{Binding IsSalesReport, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
@@ -334,10 +337,11 @@
         </Border>
 
         <!-- ============ منطقة عرض التقرير مع ScrollViewer محسن ============ -->
-        <ScrollViewer Grid.Row="1" 
+        <ScrollViewer x:Name="MainScrollViewer"
+                      Grid.Row="1" 
                       VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Auto"
-                      PanningMode="Both"
+                      HorizontalScrollBarVisibility="Disabled"
+                      PanningMode="VerticalOnly"
                       VerticalAlignment="Stretch"
                       HorizontalAlignment="Stretch">
             <Grid>
@@ -362,9 +366,10 @@
                 <Grid Grid.Row="1" Margin="15" 
                       Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}">
 
-                    <!-- ⭐⭐⭐ صفحة ملخص المبيعات المحسنة مع إصلاح تاريخ التقرير ⭐⭐⭐ -->
+                    <!-- ⭐⭐⭐ صفحة ملخص المبيعات المحسنة ⭐⭐⭐ -->
                     <Grid Visibility="{Binding IsSummaryReport, Converter={StaticResource BoolToVisibilityConverter}}">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -385,68 +390,112 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- ⭐ بطاقات الإحصائيات الرئيسية -->
+                        <!-- ⭐ الصف الأول من بطاقات الإحصائيات (4 بطاقات) -->
                         <WrapPanel Grid.Row="1" Orientation="Horizontal" 
-                                   HorizontalAlignment="Center" Margin="0,0,0,20">
+                                   HorizontalAlignment="Center" Margin="0,0,0,10">
 
-                            <!-- عدد الفواتير -->
-                            <Border Style="{StaticResource SummaryCardStyle}" Width="180">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding SalesSummary.TotalInvoices}" 
-                                               Style="{StaticResource StatValueStyle}"
-                                               Foreground="#3498DB"/>
-                                    <TextBlock Text="عدد الفواتير" 
-                                               Style="{StaticResource StatLabelStyle}"/>
-                                    <TextBlock Text="الفاتورة هي أساس العملية" 
-                                               FontSize="10" Foreground="#95A5A6"
-                                               HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- عدد العملاء -->
-                            <Border Style="{StaticResource SummaryCardStyle}" Width="180">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding SalesSummary.TotalCustomers}" 
-                                               Style="{StaticResource StatValueStyle}"
-                                               Foreground="#2ECC71"/>
-                                    <TextBlock Text="عدد العملاء" 
-                                               Style="{StaticResource StatLabelStyle}"/>
-                                    <TextBlock Text="عملاء متفاعلين مع المتجر" 
-                                               FontSize="10" Foreground="#95A5A6"
-                                               HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- إجمالي المبيعات -->
-                            <Border Style="{StaticResource SummaryCardStyle}" Width="180">
+                            <!-- إجمالي المبيعات قبل الخصم -->
+                            <Border Style="{StaticResource SummaryCardStyle}" Width="180" Margin="5">
                                 <StackPanel>
                                     <TextBlock Text="{Binding SalesSummary.TotalSalesAmount, StringFormat='{}{0:N0}'}" 
                                                Style="{StaticResource StatValueStyle}"
-                                               Foreground="#9B59B6"/>
+                                               Foreground="#3498DB"/>
                                     <TextBlock Text="إجمالي المبيعات" 
                                                Style="{StaticResource StatLabelStyle}"/>
-                                    <TextBlock Text="جنيه مصرى" 
+                                    <TextBlock Text="قبل الخصم" 
+                                               FontSize="10" Foreground="#95A5A6"
+                                               HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- إجمالي الخصومات -->
+                            <Border Style="{StaticResource SummaryCardStyle}" Width="180" Margin="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SalesSummary.TotalDiscountAmount, StringFormat='{}{0:N0}'}" 
+                                               Style="{StaticResource StatValueStyle}"
+                                               Foreground="#E74C3C"/>
+                                    <TextBlock Text="إجمالي الخصومات" 
+                                               Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock Text="{Binding SalesSummary.DiscountPercentage, StringFormat='نسبة {0:N1}%'}" 
+                                               FontSize="10" Foreground="#95A5A6"
+                                               HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- المبلغ الصافي بعد الخصم -->
+                            <Border Style="{StaticResource SummaryCardStyle}" Width="180" Margin="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SalesSummary.TotalNetAmount, StringFormat='{}{0:N0}'}" 
+                                               Style="{StaticResource StatValueStyle}"
+                                               Foreground="#2ECC71"/>
+                                    <TextBlock Text="المبلغ الصافي" 
+                                               Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock Text="بعد الخصم" 
                                                FontSize="10" Foreground="#95A5A6"
                                                HorizontalAlignment="Center" Margin="0,5,0,0"/>
                                 </StackPanel>
                             </Border>
 
                             <!-- إجمالي الربح -->
-                            <Border Style="{StaticResource SummaryCardStyle}" Width="180">
+                            <Border Style="{StaticResource SummaryCardStyle}" Width="180" Margin="5">
                                 <StackPanel>
                                     <TextBlock Text="{Binding SalesSummary.TotalProfitAmount, StringFormat='{}{0:N0}'}" 
                                                Style="{StaticResource StatValueStyle}"
-                                               Foreground="#E74C3C"/>
+                                               Foreground="#9B59B6"/>
                                     <TextBlock Text="إجمالي الربح" 
                                                Style="{StaticResource StatLabelStyle}"/>
-                                    <TextBlock Text="صافي الأرباح بعد التكاليف" 
+                                    <TextBlock Text="{Binding SalesSummary.ProfitMargin, StringFormat='هامش {0:N1}%'}" 
+                                               FontSize="10" Foreground="#95A5A6"
+                                               HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+
+                        <!-- ⭐ الصف الثاني من بطاقات الإحصائيات (4 بطاقات) -->
+                        <WrapPanel Grid.Row="2" Orientation="Horizontal" 
+                                   HorizontalAlignment="Center" Margin="0,0,0,20">
+
+                            <!-- متوسط الخصم لكل فاتورة -->
+                            <Border Style="{StaticResource SummaryCardStyle}" Width="180" Margin="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SalesSummary.AverageDiscountPerInvoice, StringFormat='{}{0:N0}'}" 
+                                               Style="{StaticResource StatValueStyle}"
+                                               Foreground="#F39C12"/>
+                                    <TextBlock Text="متوسط الخصم" 
+                                               Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock Text="{Binding SalesSummary.DiscountedInvoicesCount, StringFormat='على {0} فاتورة'}" 
+                                               FontSize="10" Foreground="#95A5A6"
+                                               HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- عدد الفواتير -->
+                            <Border Style="{StaticResource SummaryCardStyle}" Width="180" Margin="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SalesSummary.TotalInvoices}" 
+                                               Style="{StaticResource StatValueStyle}"
+                                               Foreground="#3498DB"/>
+                                    <TextBlock Text="عدد الفواتير" 
+                                               Style="{StaticResource StatLabelStyle}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- عدد العملاء -->
+                            <Border Style="{StaticResource SummaryCardStyle}" Width="180" Margin="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SalesSummary.TotalCustomers}" 
+                                               Style="{StaticResource StatValueStyle}"
+                                               Foreground="#2ECC71"/>
+                                    <TextBlock Text="عدد العملاء" 
+                                               Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock Text="عملاء متفاعلين" 
                                                FontSize="10" Foreground="#95A5A6"
                                                HorizontalAlignment="Center" Margin="0,5,0,0"/>
                                 </StackPanel>
                             </Border>
 
                             <!-- متوسط الفاتورة -->
-                            <Border Style="{StaticResource SummaryCardStyle}" Width="180">
+                            <Border Style="{StaticResource SummaryCardStyle}" Width="180" Margin="5">
                                 <StackPanel>
                                     <TextBlock Text="{Binding SalesSummary.AverageInvoiceAmount, StringFormat='{}{0:N0}'}" 
                                                Style="{StaticResource StatValueStyle}"
@@ -461,7 +510,7 @@
                         </WrapPanel>
 
                         <!-- ⭐ الإحصائيات المتقدمة -->
-                        <Grid Grid.Row="2" Margin="0,0,0,20">
+                        <Grid Grid.Row="3" Margin="0,0,0,20">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -523,7 +572,7 @@
                         </Grid>
 
                         <!-- ⭐ تاريخ التقرير -->
-                        <Border Grid.Row="3" Background="#F8F9FA" CornerRadius="6" Padding="12" HorizontalAlignment="Center">
+                        <Border Grid.Row="4" Background="#F8F9FA" CornerRadius="6" Padding="12" HorizontalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="🗓️" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="تاريخ التقرير: " 
@@ -555,7 +604,24 @@
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="#" Width="50" Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Converter={StaticResource RowNumberConverter}}" IsReadOnly="True"/>
+                            <!-- ✅ العمود الأول: رقم الصف (محسّن) -->
+                            <DataGridTextColumn Header="#" Width="50" IsReadOnly="True">
+                                <DataGridTextColumn.Binding>
+                                    <MultiBinding Converter="{StaticResource RowNumberConverter}">
+                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGridRow}"/>
+                                        <Binding ElementName="TopProductsGrid"/>
+                                    </MultiBinding>
+                                </DataGridTextColumn.Binding>
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- باقي الأعمدة -->
                             <DataGridTextColumn Header="اسم المنتج" Binding="{Binding ProductName}" Width="200" IsReadOnly="True"/>
                             <DataGridTextColumn Header="التصنيف" Binding="{Binding Category}" Width="100" IsReadOnly="True"/>
                             <DataGridTextColumn Header="سعر الوحدة" Binding="{Binding UnitPrice, StringFormat='0.00'}" Width="100" IsReadOnly="True"/>
@@ -580,7 +646,24 @@
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="#" Width="50" Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Converter={StaticResource RowNumberConverter}}" IsReadOnly="True"/>
+                            <!-- ✅ العمود الأول: رقم الصف (محسّن) -->
+                            <DataGridTextColumn Header="#" Width="50" IsReadOnly="True">
+                                <DataGridTextColumn.Binding>
+                                    <MultiBinding Converter="{StaticResource RowNumberConverter}">
+                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGridRow}"/>
+                                        <Binding ElementName="LeastProductsGrid"/>
+                                    </MultiBinding>
+                                </DataGridTextColumn.Binding>
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- باقي الأعمدة -->
                             <DataGridTextColumn Header="اسم المنتج" Binding="{Binding ProductName}" Width="200" IsReadOnly="True"/>
                             <DataGridTextColumn Header="التصنيف" Binding="{Binding Category}" Width="100" IsReadOnly="True"/>
                             <DataGridTextColumn Header="سعر الوحدة" Binding="{Binding UnitPrice, StringFormat='0.00'}" Width="100" IsReadOnly="True"/>
@@ -605,7 +688,24 @@
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="#" Width="50" Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Converter={StaticResource RowNumberConverter}}" IsReadOnly="True"/>
+                            <!-- ✅ العمود الأول: رقم الصف (محسّن) -->
+                            <DataGridTextColumn Header="#" Width="50" IsReadOnly="True">
+                                <DataGridTextColumn.Binding>
+                                    <MultiBinding Converter="{StaticResource RowNumberConverter}">
+                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGridRow}"/>
+                                        <Binding ElementName="TopPayingCustomersGrid"/>
+                                    </MultiBinding>
+                                </DataGridTextColumn.Binding>
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- باقي الأعمدة -->
                             <DataGridTextColumn Header="اسم العميل" Binding="{Binding CustomerName}" Width="200" IsReadOnly="True"/>
                             <DataGridTextColumn Header="رقم الهاتف" Binding="{Binding PhoneNumber}" Width="120" IsReadOnly="True"/>
                             <DataGridTextColumn Header="عدد الفواتير" Binding="{Binding InvoiceCount}" Width="100" IsReadOnly="True"/>
@@ -623,7 +723,24 @@
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="#" Width="50" Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Converter={StaticResource RowNumberConverter}}" IsReadOnly="True"/>
+                            <!-- ✅ العمود الأول: رقم الصف (محسّن) -->
+                            <DataGridTextColumn Header="#" Width="50" IsReadOnly="True">
+                                <DataGridTextColumn.Binding>
+                                    <MultiBinding Converter="{StaticResource RowNumberConverter}">
+                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGridRow}"/>
+                                        <Binding ElementName="TopInvoiceCustomersGrid"/>
+                                    </MultiBinding>
+                                </DataGridTextColumn.Binding>
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- باقي الأعمدة -->
                             <DataGridTextColumn Header="اسم العميل" Binding="{Binding CustomerName}" Width="200" IsReadOnly="True"/>
                             <DataGridTextColumn Header="رقم الهاتف" Binding="{Binding PhoneNumber}" Width="120" IsReadOnly="True"/>
                             <DataGridTextColumn Header="عدد الفواتير" Binding="{Binding InvoiceCount}" Width="100" IsReadOnly="True"/>
@@ -689,6 +806,24 @@
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch">
                         <DataGrid.Columns>
+                            <!-- ✅ العمود الأول: رقم الصف (محسّن) -->
+                            <DataGridTextColumn Header="#" Width="50" IsReadOnly="True">
+                                <DataGridTextColumn.Binding>
+                                    <MultiBinding Converter="{StaticResource RowNumberConverter}">
+                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGridRow}"/>
+                                        <Binding ElementName="InventoryGrid"/>
+                                    </MultiBinding>
+                                </DataGridTextColumn.Binding>
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- باقي الأعمدة -->
                             <DataGridTextColumn Header="اسم المنتج" Binding="{Binding ProductName}" Width="200" IsReadOnly="True"/>
                             <DataGridTextColumn Header="التصنيف" Binding="{Binding Category}" Width="100" IsReadOnly="True"/>
                             <DataGridTextColumn Header="سعر الوحدة" Binding="{Binding UnitPrice, StringFormat='0.00'}" Width="100" IsReadOnly="True"/>

@@ -312,22 +312,30 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                 if (toDate.HasValue)
                     query = query.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
 
-                // استخدام Select لتحسين الأداء
+                // استخدام Select للحصول على البيانات المطلوبة فقط
                 var invoiceData = query
                     .Select(i => new
                     {
                         i.Id,
                         i.CustomerId,
+                        i.TotalAmount,
+                        i.InvoiceDiscountPercentage, // ⭐ نسبة خصم الفاتورة
+                        i.InvoiceDiscountAmount, // ⭐ قيمة خصم الفاتورة (محسوبة)
                         i.FinalAmount,
                         i.InvoiceDate,
+                        i.TotalProfitAmount, // ⭐ ربح الفاتورة (محسوب)
                         Items = i.Items.Select(ii => new
                         {
                             ii.ProductId,
                             ii.Product.Name,
                             ii.Quantity,
-                            ii.UnitPrice,
-                            ii.OriginalUnitPrice,
-                            ii.LineTotal
+                            ii.UnitPrice, // سعر البيع
+                            ii.OriginalUnitPrice, // السعر الأصلي/التكلفة
+                            ii.LineTotal, // الإجمالي للعنصر
+                            ii.DiscountPercentage, // نسبة الخصم على العنصر
+                            ii.DiscountAmount, // قيمة الخصم على العنصر (محسوبة)
+                            ii.ItemProfitAmount, // ربح العنصر (محسوب)
+                            ii.TotalItemProfit // ربح العنصر الكلي (محسوب)
                         }).ToList()
                     })
                     .ToList();
@@ -341,7 +349,7 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     };
                 }
 
-                // حساب أكثر المنتجات مبيعاً
+                // ⭐ حساب أكثر المنتجات مبيعاً
                 var mostSoldProduct = invoiceData
                     .SelectMany(i => i.Items)
                     .GroupBy(ii => new { ii.ProductId, ii.Name })
@@ -354,30 +362,70 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     .OrderByDescending(g => g.TotalQuantity)
                     .FirstOrDefault();
 
-                // حساب العملاء الأكثر إنفاقاً
+                // ⭐ حساب العملاء الأكثر إنفاقاً
                 var topCustomer = invoiceData
                     .GroupBy(i => i.CustomerId)
                     .Select(g => new
                     {
                         CustomerId = g.Key,
-                        TotalAmount = g.Sum(i => i.FinalAmount)
+                        TotalAmount = g.Sum(i => i.FinalAmount) // استخدام المبلغ النهائي
                     })
                     .OrderByDescending(g => g.TotalAmount)
                     .FirstOrDefault();
 
-                // حساب إجمالي الربح
+                // ⭐ حساب الإحصائيات بناءً على الخصائص الفعلية
                 decimal totalProfit = 0;
+                decimal totalDiscount = 0;
+                decimal totalSalesBeforeDiscount = 0;
+                decimal totalNetAmount = 0;
+                int discountedInvoicesCount = 0;
+                decimal totalItemsProfit = 0; // ربح العناصر من InvoiceItem.TotalItemProfit
+
                 foreach (var invoice in invoiceData)
                 {
+                    // إضافة المبلغ الإجمالي قبل الخصم
+                    totalSalesBeforeDiscount += invoice.TotalAmount;
+
+                    // إضافة المبلغ الصافي بعد الخصم
+                    totalNetAmount += invoice.FinalAmount;
+
+                    // حساب خصم الفاتورة (من الخاصية المحسوبة)
+                    decimal invoiceDiscount = invoice.InvoiceDiscountAmount;
+                    totalDiscount += invoiceDiscount;
+
+                    // زيادة عداد الفواتير المخصومة
+                    if (invoiceDiscount > 0 || invoice.InvoiceDiscountPercentage > 0)
+                    {
+                        discountedInvoicesCount++;
+                    }
+
+                    // إضافة ربح الفاتورة الإجمالي (من الخاصية المحسوبة)
+                    totalProfit += invoice.TotalProfitAmount;
+
+                    // حساب ربح العناصر من TotalItemProfit
                     foreach (var item in invoice.Items)
                     {
-                        decimal itemProfit = (item.UnitPrice - item.OriginalUnitPrice) * item.Quantity;
-                        totalProfit += itemProfit;
+                        // إضافة ربح العنصر من الخاصية المحسوبة
+                        totalItemsProfit += item.TotalItemProfit;
+
+                        // إضافة خصم العنصر
+                        totalDiscount += item.DiscountAmount;
                     }
                 }
 
-                // حساب إجمالي الخصم (افتراضي)
-                decimal totalDiscount = 0;
+                // ⭐ حساب الإحصائيات الإضافية
+                decimal discountPercentage = totalSalesBeforeDiscount > 0 ?
+                    (totalDiscount / totalSalesBeforeDiscount) * 100 : 0;
+
+                decimal profitMargin = totalNetAmount > 0 ?
+                    (totalProfit / totalNetAmount) * 100 : 0;
+
+                decimal averageDiscountPerInvoice = discountedInvoicesCount > 0 ?
+                    totalDiscount / discountedInvoicesCount : 0;
+
+                // ⭐ التأكد من أن الربح صحيح (يجب أن يكون نفس القيمة المحسوبة)
+                // نستخدم totalProfit الذي جمعناه من TotalProfitAmount للفاتورة
+                // أو يمكننا استخدام totalItemsProfit إذا أردنا ربح العناصر فقط
 
                 var summary = new SalesSummaryReport
                 {
@@ -386,10 +434,17 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     TotalInvoices = invoiceData.Count,
                     TotalCustomers = invoiceData.Select(i => i.CustomerId).Distinct().Count(),
                     TotalProductsSold = (int)invoiceData.Sum(i => i.Items.Sum(ii => ii.Quantity)),
-                    TotalSalesAmount = invoiceData.Sum(i => i.FinalAmount),
-                    TotalProfitAmount = totalProfit,
+                    TotalSalesAmount = totalSalesBeforeDiscount, // المبيعات الإجمالية قبل الخصم
+                    TotalProfitAmount = totalProfit, // الربح الإجمالي من TotalProfitAmount
                     TotalDiscountAmount = totalDiscount,
-                    AverageInvoiceAmount = invoiceData.Count > 0 ? invoiceData.Average(i => i.FinalAmount) : 0
+                    TotalNetAmount = totalNetAmount, // المبلغ الصافي بعد الخصم
+                    AverageInvoiceAmount = invoiceData.Count > 0 ? totalNetAmount / invoiceData.Count : 0,
+
+                    // ⭐ الإحصائيات الجديدة
+                    DiscountPercentage = discountPercentage,
+                    ProfitMargin = profitMargin,
+                    AverageDiscountPerInvoice = averageDiscountPerInvoice,
+                    DiscountedInvoicesCount = discountedInvoicesCount
                 };
 
                 if (mostSoldProduct != null)
@@ -436,8 +491,19 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     {
                         i.InvoiceDate.Date,
                         i.CustomerId,
+                        i.TotalAmount,
+                        i.InvoiceDiscountAmount, // ⭐ خصم الفاتورة
                         i.FinalAmount,
-                        i.Items
+                        i.TotalProfitAmount, // ⭐ ربح الفاتورة
+                        Items = i.Items.Select(ii => new
+                        {
+                            ii.Quantity,
+                            ii.UnitPrice,
+                            ii.OriginalUnitPrice,
+                            ii.LineTotal,
+                            ii.DiscountAmount, // ⭐ خصم العنصر
+                            ii.TotalItemProfit // ⭐ ربح العنصر
+                        }).ToList()
                     })
                     .AsNoTracking()
                     .ToList();
@@ -449,29 +515,12 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                         Date = g.Key,
                         InvoiceCount = g.Count(),
                         CustomerCount = g.Select(i => i.CustomerId).Distinct().Count(),
-                        TotalAmount = g.Sum(i => i.FinalAmount),
-                        TotalProfit = 0, // سيتم حسابه لاحقاً
-                        TotalDiscount = 0 // سيتم حسابه لاحقاً
+                        TotalAmount = g.Sum(i => i.FinalAmount), // المبلغ النهائي
+                        TotalProfit = g.Sum(i => i.TotalProfitAmount), // ⭐ ربح الفاتورة من الخاصية المحسوبة
+                        TotalDiscount = g.Sum(i => i.InvoiceDiscountAmount + i.Items.Sum(item => item.DiscountAmount)) // ⭐ إجمالي الخصومات
                     })
                     .OrderBy(r => r.Date)
                     .ToList();
-
-                // حساب الربح لكل يوم
-                foreach (var report in dailyData)
-                {
-                    var dayInvoices = invoiceData
-                        .Where(i => i.Date == report.Date)
-                        .ToList();
-
-                    foreach (var invoice in dayInvoices)
-                    {
-                        foreach (var item in invoice.Items)
-                        {
-                            decimal itemProfit = (item.UnitPrice - item.OriginalUnitPrice) * item.Quantity;
-                            report.TotalProfit += itemProfit;
-                        }
-                    }
-                }
 
                 // إضافة الأيام الفارغة
                 var allDates = Enumerable.Range(0, (toDate.Date - fromDate.Date).Days + 1)
@@ -514,12 +563,18 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                     .Select(i => new
                     {
                         i.InvoiceDate.Month,
+                        i.TotalAmount,
+                        i.InvoiceDiscountAmount, // ⭐ خصم الفاتورة
                         i.FinalAmount,
+                        i.TotalProfitAmount, // ⭐ ربح الفاتورة
                         Items = i.Items.Select(ii => new
                         {
+                            ii.Quantity,
                             ii.UnitPrice,
                             ii.OriginalUnitPrice,
-                            ii.Quantity
+                            ii.LineTotal,
+                            ii.DiscountAmount, // ⭐ خصم العنصر
+                            ii.TotalItemProfit // ⭐ ربح العنصر
                         }).ToList()
                     })
                     .AsNoTracking()
@@ -533,9 +588,8 @@ namespace SupplyCompanySystem.Infrastructure.Repositories
                         Month = g.Key,
                         MonthName = GetArabicMonthName(g.Key),
                         InvoiceCount = g.Count(),
-                        TotalAmount = g.Sum(i => i.FinalAmount),
-                        TotalProfit = g.Sum(i => i.Items.Sum(ii =>
-                            (ii.UnitPrice - ii.OriginalUnitPrice) * ii.Quantity)),
+                        TotalAmount = g.Sum(i => i.FinalAmount), // المبلغ النهائي
+                        TotalProfit = g.Sum(i => i.TotalProfitAmount), // ⭐ ربح الفاتورة من الخاصية المحسوبة
                         AverageAmount = g.Average(i => i.FinalAmount),
                         GrowthPercentage = 0
                     })
