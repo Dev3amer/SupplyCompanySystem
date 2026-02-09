@@ -11,7 +11,6 @@ using System.Windows.Threading;
 
 namespace SupplyCompanySystem.UI.Views
 {
-
     public partial class InvoicesView : UserControl
     {
         private InvoiceViewModel _viewModel;
@@ -196,64 +195,127 @@ namespace SupplyCompanySystem.UI.Views
 
         #endregion
 
-        #region Customer ComboBox Events
-
-        private void CustomerComboBox_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            var comboBox = sender as ComboBox;
-            if (comboBox == null) return;
-
-            if (e.Key >= Key.A && e.Key <= Key.Z ||
-                e.Key >= Key.D0 && e.Key <= Key.D9 ||
-                e.Key == Key.Space || e.Key == Key.OemComma || e.Key == Key.OemPeriod)
-            {
-                if (!comboBox.IsDropDownOpen)
-                {
-                    comboBox.IsDropDownOpen = true;
-                }
-            }
-            else if (e.Key == Key.Enter || e.Key == Key.Return)
-            {
-                comboBox.IsDropDownOpen = false;
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Escape)
-            {
-                comboBox.Text = string.Empty;
-                _viewModel.SelectedCustomer = null;
-                comboBox.IsDropDownOpen = false;
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Down || e.Key == Key.Up)
-            {
-                if (!comboBox.IsDropDownOpen)
-                {
-                    comboBox.IsDropDownOpen = true;
-                    e.Handled = true;
-                }
-            }
-        }
+        #region Customer ComboBox Events المحسنة
 
         private void CustomerComboBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
+            // السماح بالكتابة الطبيعية
+            // البحث سيعمل تلقائياً عبر Binding
             _customerSearchTimer.Stop();
             _customerSearchTimer.Start();
+        }
 
-            if (!comboBox.IsDropDownOpen)
+        private void CustomerComboBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            var comboBox = sender as ComboBox;
+            if (comboBox == null) return;
+
+            // عند الضغط على Backspace أو Delete، تحديث البحث فقط
+            if (e.Key == Key.Back || e.Key == Key.Delete)
             {
-                comboBox.IsDropDownOpen = true;
+                _customerSearchTimer.Stop();
+                _customerSearchTimer.Start();
+                e.Handled = false;
+                return;
             }
+
+            // عند الضغط على Enter، إغلاق القائمة
+            if (e.Key == Key.Enter || e.Key == Key.Return)
+            {
+                if (comboBox.SelectedItem != null)
+                {
+                    comboBox.IsDropDownOpen = false;
+                    e.Handled = true;
+                }
+                else if (comboBox.Items.Count > 0)
+                {
+                    // إذا لم يكن هناك عنصر محدد، حدد أول عنصر
+                    comboBox.SelectedIndex = 0;
+                    comboBox.IsDropDownOpen = false;
+                    e.Handled = true;
+                }
+                return;
+            }
+
+            // عند الضغط على Escape، مسح النص
+            if (e.Key == Key.Escape)
+            {
+                _viewModel.TempCustomerSearchText = string.Empty;
+                _viewModel.SelectedCustomer = null;
+                comboBox.Text = string.Empty;
+                comboBox.IsDropDownOpen = false;
+                e.Handled = true;
+                return;
+            }
+
+            // عند الضغط على الأسهم للتنقل بين النتائج
+            if (e.Key == Key.Down || e.Key == Key.Up)
+            {
+                if (!comboBox.IsDropDownOpen)
+                {
+                    comboBox.IsDropDownOpen = true;
+                }
+
+                // التأكد من أن هناك عناصر في القائمة
+                if (comboBox.Items.Count > 0)
+                {
+                    // تحديد أول عنصر إذا لم يكن هناك عنصر محدد
+                    if (comboBox.SelectedIndex == -1)
+                    {
+                        comboBox.SelectedIndex = 0;
+                    }
+                }
+                e.Handled = true;
+                return;
+            }
+
+            // عند الضغط على Tab، إغلاق القائمة والانتقال للحقل التالي
+            if (e.Key == Key.Tab)
+            {
+                comboBox.IsDropDownOpen = false;
+                e.Handled = false;
+                return;
+            }
+
+            // السماح بجميع المفاتيح الأخرى
+            e.Handled = false;
         }
 
         private void CustomerComboBox_DropDownOpened(object sender, EventArgs e)
         {
             var comboBox = sender as ComboBox;
-            if (comboBox == null || string.IsNullOrWhiteSpace(comboBox.Text)) return;
+            if (comboBox == null) return;
 
-            _viewModel.CustomerSearchText = comboBox.Text;
+            // تحديث العرض عند فتح القائمة
+            comboBox.Items.Refresh();
+        }
+
+        private void CustomerComboBox_DropDownClosed(object sender, EventArgs e)
+        {
+            var comboBox = sender as ComboBox;
+            if (comboBox == null) return;
+
+            // إذا كان هناك نص ولكن لم يتم اختيار عميل
+            if (!string.IsNullOrWhiteSpace(comboBox.Text) && comboBox.SelectedItem == null)
+            {
+                // البحث عن عميل مطابق للنص
+                var exactMatch = comboBox.Items.Cast<Domain.Entities.Customer>()
+                    .FirstOrDefault(c => c.Name.Equals(comboBox.Text, StringComparison.OrdinalIgnoreCase));
+
+                if (exactMatch != null)
+                {
+                    _viewModel.SelectedCustomer = exactMatch;
+                    comboBox.Text = exactMatch.Name;
+                }
+                else if (comboBox.Items.Count == 1)
+                {
+                    // إذا كان هناك عنصر واحد فقط، حدده تلقائياً
+                    comboBox.SelectedIndex = 0;
+                }
+            }
         }
 
         private void CustomerComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -263,11 +325,14 @@ namespace SupplyCompanySystem.UI.Views
 
             if (comboBox.SelectedItem != null)
             {
+                // عند اختيار عميل، إغلاق القائمة وتحديث النص
                 comboBox.IsDropDownOpen = false;
 
                 var customer = comboBox.SelectedItem as Domain.Entities.Customer;
                 if (customer != null)
                 {
+                    // تحديث النص في حقل البحث
+                    _viewModel.TempCustomerSearchText = customer.Name;
                     comboBox.Text = customer.Name;
                 }
             }
@@ -284,79 +349,150 @@ namespace SupplyCompanySystem.UI.Views
             }), DispatcherPriority.Background);
         }
 
+        private void CustomerComboBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            var comboBox = sender as ComboBox;
+            if (comboBox == null) return;
+
+            // عند التركيز، فتح القائمة إذا كان النص فارغاً (للمرة الأولى فقط)
+            if (string.IsNullOrWhiteSpace(comboBox.Text))
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    comboBox.IsDropDownOpen = true;
+                }), DispatcherPriority.Background);
+            }
+        }
+
         private void CustomerSearchTimer_Tick(object sender, EventArgs e)
         {
             _customerSearchTimer.Stop();
 
             if (CustomerComboBox != null)
             {
-                _viewModel.CustomerSearchText = CustomerComboBox.Text;
+                _viewModel.CustomerSearchText = _viewModel.TempCustomerSearchText;
 
-                if (!string.IsNullOrWhiteSpace(CustomerComboBox.Text) && !CustomerComboBox.IsDropDownOpen)
+                if (!string.IsNullOrWhiteSpace(_viewModel.TempCustomerSearchText))
                 {
-                    CustomerComboBox.IsDropDownOpen = true;
+                    if (!CustomerComboBox.IsDropDownOpen)
+                    {
+                        CustomerComboBox.IsDropDownOpen = true;
+                    }
+                    if (_viewModel.FilteredCustomersView != null)
+                    {
+                        _viewModel.FilteredCustomersView.Refresh();
+                    }
+                }
+                else
+                {
+                    CustomerComboBox.IsDropDownOpen = false;
                 }
             }
         }
 
         #endregion
 
-        #region Product ComboBox Events
+        #region Product ComboBox Events المحسنة
+
+        private void ProductComboBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            _productSearchTimer.Stop();
+            _productSearchTimer.Start();
+        }
 
         private void ProductComboBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             var comboBox = sender as ComboBox;
             if (comboBox == null) return;
 
-            if (e.Key >= Key.A && e.Key <= Key.Z ||
-                e.Key >= Key.D0 && e.Key <= Key.D9 ||
-                e.Key == Key.Space || e.Key == Key.OemComma || e.Key == Key.OemPeriod)
+            // عند الضغط على Backspace أو Delete، تحديث البحث فقط
+            if (e.Key == Key.Back || e.Key == Key.Delete)
             {
-                if (!comboBox.IsDropDownOpen)
+                _productSearchTimer.Stop();
+                _productSearchTimer.Start();
+                e.Handled = false;
+                return;
+            }
+
+            if (e.Key == Key.Enter || e.Key == Key.Return)
+            {
+                if (comboBox.SelectedItem != null)
                 {
-                    comboBox.IsDropDownOpen = true;
-                }
-            }
-            else if (e.Key == Key.Enter || e.Key == Key.Return)
-            {
-                comboBox.IsDropDownOpen = false;
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Escape)
-            {
-                comboBox.Text = string.Empty;
-                _viewModel.SelectedProduct = null;
-                comboBox.IsDropDownOpen = false;
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Down || e.Key == Key.Up)
-            {
-                if (!comboBox.IsDropDownOpen)
-                {
-                    comboBox.IsDropDownOpen = true;
+                    comboBox.IsDropDownOpen = false;
                     e.Handled = true;
                 }
+                else if (comboBox.Items.Count > 0)
+                {
+                    comboBox.SelectedIndex = 0;
+                    comboBox.IsDropDownOpen = false;
+                    e.Handled = true;
+                }
+                return;
             }
-        }
 
-        private void ProductComboBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
-        {
-            var comboBox = sender as ComboBox;
-            if (comboBox == null) return;
+            if (e.Key == Key.Escape)
+            {
+                _viewModel.TempProductSearchText = string.Empty;
+                _viewModel.SelectedProduct = null;
+                comboBox.Text = string.Empty;
+                comboBox.IsDropDownOpen = false;
+                e.Handled = true;
+                return;
+            }
 
-            _productSearchTimer.Stop();
-            _productSearchTimer.Start();
+            if (e.Key == Key.Down || e.Key == Key.Up)
+            {
+                if (!comboBox.IsDropDownOpen)
+                {
+                    comboBox.IsDropDownOpen = true;
+                }
 
-            if (!comboBox.IsDropDownOpen)
-                comboBox.IsDropDownOpen = true;
+                if (comboBox.Items.Count > 0 && comboBox.SelectedIndex == -1)
+                {
+                    comboBox.SelectedIndex = 0;
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Tab)
+            {
+                comboBox.IsDropDownOpen = false;
+                e.Handled = false;
+                return;
+            }
+
+            e.Handled = false;
         }
 
         private void ProductComboBox_DropDownOpened(object sender, EventArgs e)
         {
             var comboBox = sender as ComboBox;
-            if (comboBox == null || string.IsNullOrWhiteSpace(comboBox.Text)) return;
+            if (comboBox == null) return;
 
-            _viewModel.ProductSearchText = comboBox.Text;
+            comboBox.Items.Refresh();
+        }
+
+        private void ProductComboBox_DropDownClosed(object sender, EventArgs e)
+        {
+            var comboBox = sender as ComboBox;
+            if (comboBox == null) return;
+
+            if (!string.IsNullOrWhiteSpace(comboBox.Text) && comboBox.SelectedItem == null)
+            {
+                var exactMatch = comboBox.Items.Cast<Domain.Entities.Product>()
+                    .FirstOrDefault(p => p.Name.Equals(comboBox.Text, StringComparison.OrdinalIgnoreCase));
+
+                if (exactMatch != null)
+                {
+                    _viewModel.SelectedProduct = exactMatch;
+                    comboBox.Text = exactMatch.Name;
+                }
+                else if (comboBox.Items.Count == 1)
+                {
+                    comboBox.SelectedIndex = 0;
+                }
+            }
         }
 
         private void ProductComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -371,6 +507,7 @@ namespace SupplyCompanySystem.UI.Views
                 var product = comboBox.SelectedItem as Domain.Entities.Product;
                 if (product != null)
                 {
+                    _viewModel.TempProductSearchText = product.Name;
                     comboBox.Text = product.Name;
                 }
             }
@@ -387,17 +524,43 @@ namespace SupplyCompanySystem.UI.Views
             }), DispatcherPriority.Background);
         }
 
+        private void ProductComboBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            var comboBox = sender as ComboBox;
+            if (comboBox == null) return;
+
+            // عند التركيز، فتح القائمة إذا كان النص فارغاً (للمرة الأولى فقط)
+            if (string.IsNullOrWhiteSpace(comboBox.Text))
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    comboBox.IsDropDownOpen = true;
+                }), DispatcherPriority.Background);
+            }
+        }
+
         private void ProductSearchTimer_Tick(object sender, EventArgs e)
         {
             _productSearchTimer.Stop();
 
             if (ProductComboBox != null)
             {
-                _viewModel.ProductSearchText = ProductComboBox.Text;
+                _viewModel.ProductSearchText = _viewModel.TempProductSearchText;
 
-                if (!string.IsNullOrWhiteSpace(ProductComboBox.Text) && !ProductComboBox.IsDropDownOpen)
+                if (!string.IsNullOrWhiteSpace(_viewModel.TempProductSearchText))
                 {
-                    ProductComboBox.IsDropDownOpen = true;
+                    if (!ProductComboBox.IsDropDownOpen)
+                    {
+                        ProductComboBox.IsDropDownOpen = true;
+                    }
+                    if (_viewModel.FilteredProductsView != null)
+                    {
+                        _viewModel.FilteredProductsView.Refresh();
+                    }
+                }
+                else
+                {
+                    ProductComboBox.IsDropDownOpen = false;
                 }
             }
         }
@@ -476,6 +639,7 @@ namespace SupplyCompanySystem.UI.Views
                 }
             }
         }
+
         private void InvoiceItemsDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (InvoiceItemsDataGrid.SelectedItem != null)
@@ -491,6 +655,7 @@ namespace SupplyCompanySystem.UI.Views
                 }
             }
         }
+
         private void InvoiceItemsDataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter && InvoiceItemsDataGrid.SelectedItem != null)
@@ -512,6 +677,8 @@ namespace SupplyCompanySystem.UI.Views
                 }
             }
         }
+
+        // إصلاح دالة GetCurrentCell
         private DataGridCell GetCurrentCell(DataGrid dataGrid)
         {
             if (dataGrid.CurrentCell != null)
@@ -520,34 +687,61 @@ namespace SupplyCompanySystem.UI.Views
                 var row = dataGrid.ItemContainerGenerator.ContainerFromItem(cellInfo.Item) as DataGridRow;
                 if (row != null)
                 {
-                    var presenter = GetVisualChild<DataGridCellsPresenter>(row);
-                    if (presenter != null)
+                    var cellsPresenter = GetVisualChild<DataGridCellsPresenter>(row);
+                    if (cellsPresenter != null)
                     {
-                        var cell = presenter.ItemContainerGenerator.ContainerFromIndex(cellInfo.Column.DisplayIndex) as DataGridCell;
-                        return cell;
+                        // استخدام GetChildrenCount بدلاً من ItemContainerGenerator
+                        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(cellsPresenter); i++)
+                        {
+                            var child = VisualTreeHelper.GetChild(cellsPresenter, i);
+                            if (child is DataGridCell cell)
+                            {
+                                if (cell.Column != null && cell.Column.DisplayIndex == cellInfo.Column.DisplayIndex)
+                                {
+                                    return cell;
+                                }
+                            }
+                        }
                     }
                 }
             }
             return null;
         }
-        private T GetVisualChild<T>(DependencyObject parent) where T : Visual
+
+        // إصلاح دالة GetVisualChild
+        private T GetVisualChild<T>(DependencyObject parent) where T : DependencyObject
         {
-            T child = default(T);
-            int numVisuals = VisualTreeHelper.GetChildrenCount(parent);
-            for (int i = 0; i < numVisuals; i++)
+            if (parent == null) return null;
+
+            int childrenCount = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < childrenCount; i++)
             {
-                Visual v = (Visual)VisualTreeHelper.GetChild(parent, i);
-                child = v as T;
-                if (child == null)
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T typedChild)
                 {
-                    child = GetVisualChild<T>(v);
+                    return typedChild;
                 }
-                if (child != null)
+
+                var descendant = GetVisualChild<T>(child);
+                if (descendant != null)
                 {
-                    break;
+                    return descendant;
                 }
             }
-            return child;
+
+            return null;
+        }
+
+        // إصلاح دالة FindVisualParent
+        private T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T parent)
+                    return parent;
+                child = VisualTreeHelper.GetParent(child);
+            }
+            return null;
         }
 
         #endregion
@@ -574,20 +768,30 @@ namespace SupplyCompanySystem.UI.Views
                 return;
             }
 
+            if (IsClickOnComboBox(e, CustomerComboBox) || IsClickOnComboBox(e, ProductComboBox))
+            {
+                return;
+            }
+
             ClearDataGridSelection(InvoiceItemsDataGrid, () => _viewModel.SelectedInvoiceItem = null);
             ClearDataGridSelection(InvoicesDataGrid, () => _viewModel.SelectedInvoiceFromList = null);
         }
 
-        private T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+        private bool IsClickOnComboBox(MouseButtonEventArgs e, ComboBox comboBox)
         {
-            while (child != null)
+            if (comboBox == null || !comboBox.IsVisible) return false;
+
+            try
             {
-                if (child is T parent)
-                    return parent;
-                child = VisualTreeHelper.GetParent(child);
+                var hitTest = VisualTreeHelper.HitTest(comboBox, e.GetPosition(comboBox));
+                return hitTest != null;
             }
-            return null;
+            catch
+            {
+                return false;
+            }
         }
+
         private bool IsClickOnDataGrid(MouseButtonEventArgs e, DataGrid dataGrid)
         {
             if (dataGrid == null || !dataGrid.IsVisible) return false;
@@ -602,6 +806,7 @@ namespace SupplyCompanySystem.UI.Views
                 return false;
             }
         }
+
         private void ClearDataGridSelection(DataGrid dataGrid, Action updateViewModel)
         {
             if (dataGrid == null) return;
@@ -615,6 +820,7 @@ namespace SupplyCompanySystem.UI.Views
             }
             catch
             {
+                // تجاهل أي أخطاء في عملية الإلغاء
             }
         }
 
@@ -661,6 +867,7 @@ namespace SupplyCompanySystem.UI.Views
             }
             catch
             {
+                // تجاهل الأخطاء أثناء التنظيف
             }
         }
 

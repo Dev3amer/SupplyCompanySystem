@@ -28,6 +28,8 @@ namespace SupplyCompanySystem.UI.ViewModels
 
         private string _customerSearchText;
         private string _productSearchText;
+        private string _tempCustomerSearchText = string.Empty;
+        private string _tempProductSearchText = string.Empty;
 
         private Invoice _currentInvoice;
         private Invoice _selectedInvoiceFromList;
@@ -118,6 +120,67 @@ namespace SupplyCompanySystem.UI.ViewModels
                     _productSearchText = value;
                     OnPropertyChanged(nameof(ProductSearchText));
                     _productsViewSource?.View?.Refresh();
+                }
+            }
+        }
+
+        private bool _isFirstCustomerFocus = true;
+        private bool _isFirstProductFocus = true;
+        public string TempCustomerSearchText
+        {
+            get => _tempCustomerSearchText;
+            set
+            {
+                if (_tempCustomerSearchText != value)
+                {
+                    _tempCustomerSearchText = value;
+                    OnPropertyChanged(nameof(TempCustomerSearchText));
+
+                    // تحديث البحث الفعلي
+                    CustomerSearchText = value;
+
+                    // إذا كان أول تركيز، فتح القائمة فارغة
+                    if (_isFirstCustomerFocus && string.IsNullOrWhiteSpace(value))
+                    {
+                        _isFirstCustomerFocus = false;
+                        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+                        {
+                            // تأخير فتح القائمة لضمان تحديث العرض أولاً
+                            if (FilteredCustomersView != null)
+                            {
+                                FilteredCustomersView.Refresh();
+                            }
+                        }), DispatcherPriority.Background);
+                    }
+                }
+            }
+        }
+
+        public string TempProductSearchText
+        {
+            get => _tempProductSearchText;
+            set
+            {
+                if (_tempProductSearchText != value)
+                {
+                    _tempProductSearchText = value;
+                    OnPropertyChanged(nameof(TempProductSearchText));
+
+                    // تحديث البحث الفعلي
+                    ProductSearchText = value;
+
+                    // إذا كان أول تركيز، فتح القائمة فارغة
+                    if (_isFirstProductFocus && string.IsNullOrWhiteSpace(value))
+                    {
+                        _isFirstProductFocus = false;
+                        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+                        {
+                            if (FilteredProductsView != null)
+                            {
+                                FilteredProductsView.Refresh();
+                            }
+                        }), DispatcherPriority.Background);
+                    }
                 }
             }
         }
@@ -582,9 +645,11 @@ namespace SupplyCompanySystem.UI.ViewModels
                 else
                 {
                     var searchText = CustomerSearchText.ToLower();
+
+                    // بحث شامل في جميع الحقول مع تحسين الأداء
                     e.Accepted = customer.Name.ToLower().Contains(searchText) ||
-                                 customer.PhoneNumber.ToLower().Contains(searchText) ||
-                                 customer.Address.ToLower().Contains(searchText);
+                                 (customer.PhoneNumber != null && customer.PhoneNumber.ToLower().Contains(searchText)) ||
+                                 (customer.Address != null && customer.Address.ToLower().Contains(searchText));
                 }
             }
             else
@@ -604,6 +669,8 @@ namespace SupplyCompanySystem.UI.ViewModels
                 else
                 {
                     var searchText = ProductSearchText.ToLower();
+
+                    // بحث شامل في جميع حقول المنتج
                     e.Accepted = product.Name.ToLower().Contains(searchText) ||
                                  (product.SKU != null && product.SKU.ToLower().Contains(searchText)) ||
                                  (product.Category != null && product.Category.ToLower().Contains(searchText));
@@ -1289,5 +1356,6 @@ namespace SupplyCompanySystem.UI.ViewModels
                 _productsViewSource.Filter -= ProductsViewSource_Filter;
             }
         }
+
     }
 }

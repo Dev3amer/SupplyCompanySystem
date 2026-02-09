@@ -615,16 +615,25 @@
                                               ItemsSource="{Binding FilteredCustomersView}" 
                                               SelectedItem="{Binding SelectedCustomer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                               IsEditable="True" 
-                                              Text="{Binding CustomerSearchText, UpdateSourceTrigger=PropertyChanged}" 
+                                              Text="{Binding TempCustomerSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                               IsEnabled="{Binding IsEditMode}" 
                                               Foreground="#2C3E50" FontSize="12" 
                                               Padding="5" Height="28" 
+                                              IsTextSearchEnabled="False"
+                                              StaysOpenOnEdit="True"
                                               TextSearch.TextPath="Name" 
                                               SelectedValuePath="Id" 
-                                              Grid.Column="1">
+                                              Grid.Column="1"
+                                              DropDownOpened="CustomerComboBox_DropDownOpened"
+                                              DropDownClosed="CustomerComboBox_DropDownClosed"
+                                              PreviewKeyDown="CustomerComboBox_PreviewKeyDown"
+                                              PreviewTextInput="CustomerComboBox_PreviewTextInput"
+                                              SelectionChanged="CustomerComboBox_SelectionChanged"
+                                              GotFocus="CustomerComboBox_GotFocus"
+                                              LostFocus="CustomerComboBox_LostFocus">
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate>
-                                                <StackPanel Orientation="Horizontal">
+                                                <StackPanel Orientation="Horizontal" Margin="2">
                                                     <TextBlock Text="{Binding Name}" 
                                                                FontWeight="Bold" 
                                                                Margin="0,0,8,0" FontSize="11"/>
@@ -633,6 +642,18 @@
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ComboBox.ItemTemplate>
+                                        <ComboBox.Style>
+                                            <Style TargetType="ComboBox">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                        <Setter Property="IsDropDownOpen" Value="True"/>
+                                                    </Trigger>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="IsDropDownOpen" Value="False"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ComboBox.Style>
                                     </ComboBox>
                                 </Grid>
 
@@ -649,16 +670,25 @@
                                               ItemsSource="{Binding FilteredProductsView}" 
                                               SelectedItem="{Binding SelectedProduct, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                               IsEditable="True" 
-                                              Text="{Binding ProductSearchText, UpdateSourceTrigger=PropertyChanged}" 
+                                              Text="{Binding TempProductSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                               IsEnabled="{Binding IsEditMode}" 
                                               Foreground="#2C3E50" FontSize="12" 
                                               Padding="5" Height="28" 
+                                              IsTextSearchEnabled="False"
+                                              StaysOpenOnEdit="True"
                                               TextSearch.TextPath="Name" 
                                               SelectedValuePath="Id" 
-                                              Grid.Column="1" Margin="4,0,0,0">
+                                              Grid.Column="1"
+                                              DropDownOpened="ProductComboBox_DropDownOpened"
+                                              DropDownClosed="ProductComboBox_DropDownClosed"
+                                              PreviewKeyDown="ProductComboBox_PreviewKeyDown"
+                                              PreviewTextInput="ProductComboBox_PreviewTextInput"
+                                              SelectionChanged="ProductComboBox_SelectionChanged"
+                                              GotFocus="ProductComboBox_GotFocus"
+                                              LostFocus="ProductComboBox_LostFocus" Margin="4,0,0,0">
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate>
-                                                <StackPanel Orientation="Horizontal">
+                                                <StackPanel Orientation="Horizontal" Margin="2">
                                                     <TextBlock Text="{Binding Name}" 
                                                                FontWeight="Bold" 
                                                                Margin="0,0,8,0" FontSize="11"/>
@@ -670,6 +700,18 @@
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ComboBox.ItemTemplate>
+                                        <ComboBox.Style>
+                                            <Style TargetType="ComboBox">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                        <Setter Property="IsDropDownOpen" Value="True"/>
+                                                    </Trigger>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="IsDropDownOpen" Value="False"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ComboBox.Style>
                                     </ComboBox>
                                 </Grid>
 
