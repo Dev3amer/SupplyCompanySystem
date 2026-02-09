@@ -936,6 +936,17 @@ namespace SupplyCompanySystem.UI.ViewModels
 
             foreach (var invoice in incompleteInvoices)
             {
+                // ✅ إصلاح: تحميل المنتجات المرتبطة
+                if (invoice.Items != null)
+                {
+                    foreach (var item in invoice.Items)
+                    {
+                        if (item.Product == null && item.ProductId > 0)
+                        {
+                            item.Product = _productRepository.GetById(item.ProductId);
+                        }
+                    }
+                }
                 Invoices.Add(invoice);
             }
         }
@@ -983,6 +994,16 @@ namespace SupplyCompanySystem.UI.ViewModels
 
             CurrentInvoice = SelectedInvoiceFromList;
             InvoiceItems = new ObservableCollection<InvoiceItem>(SelectedInvoiceFromList.Items ?? new List<InvoiceItem>());
+
+            // ✅ إصلاح: تحميل المنتجات للمواد الموجودة
+            foreach (var item in InvoiceItems)
+            {
+                if (item.Product == null && item.ProductId > 0)
+                {
+                    item.Product = _productRepository.GetById(item.ProductId);
+                }
+            }
+
             SelectedCustomer = SelectedInvoiceFromList.Customer;
             SelectedInvoiceDate = SelectedInvoiceFromList.InvoiceDate;
             ProfitMarginPercentage = SelectedInvoiceFromList.ProfitMarginPercentage != 0
@@ -1038,6 +1059,12 @@ namespace SupplyCompanySystem.UI.ViewModels
                 existing.OriginalUnitPrice = originalPrice;
                 existing.UnitPrice = finalUnitPrice;
 
+                // ✅ إصلاح: ضمان وجود المنتج
+                if (existing.Product == null)
+                {
+                    existing.Product = SelectedProduct;
+                }
+
                 UpdateInvoiceItemLineTotal(existing, invoiceProfitMargin);
 
                 int idx = InvoiceItems.IndexOf(existing);
@@ -1048,6 +1075,7 @@ namespace SupplyCompanySystem.UI.ViewModels
                 var newItem = new InvoiceItem()
                 {
                     ProductId = SelectedProduct.Id,
+                    Product = SelectedProduct, // ✅ إضافة المنتج مباشرة
                     Quantity = quantity,
                     OriginalUnitPrice = originalPrice,
                     UnitPrice = finalUnitPrice,
@@ -1160,6 +1188,7 @@ namespace SupplyCompanySystem.UI.ViewModels
 
                     _invoiceRepository.Add(invoiceToSave);
                     CurrentInvoice.Id = invoiceToSave.Id;
+                    CurrentInvoice.CreatedDate = invoiceToSave.CreatedDate;
                     Invoices.Add(CurrentInvoice);
                 }
                 else
@@ -1356,6 +1385,5 @@ namespace SupplyCompanySystem.UI.ViewModels
                 _productsViewSource.Filter -= ProductsViewSource_Filter;
             }
         }
-
     }
 }

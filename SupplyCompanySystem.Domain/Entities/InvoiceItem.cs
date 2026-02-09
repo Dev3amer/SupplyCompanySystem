@@ -64,9 +64,13 @@ namespace SupplyCompanySystem.Domain.Entities
                 {
                     _product = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(ProductName));
                 }
             }
         }
+
+        // ✅ خاصية جديدة لاسم المنتج
+        public string ProductName => Product?.Name ?? string.Empty;
 
         public decimal Quantity
         {
@@ -217,6 +221,17 @@ namespace SupplyCompanySystem.Domain.Entities
             DiscountPercentage = 0;
             ItemProfitMarginPercentage = 0;
             UpdateLineTotal();
+        }
+
+        // ✅ دالة مساعدة لتحديث المنتج
+        public void SetProduct(Product product)
+        {
+            Product = product;
+            if (product != null)
+            {
+                ProductId = product.Id;
+                OriginalUnitPrice = product.Price;
+            }
         }
 
         private void ApplyProfitMarginToUnitPrice()
